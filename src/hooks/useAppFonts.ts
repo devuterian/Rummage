@@ -10,6 +10,19 @@ import { isAndroid, isTauri } from '../lib/platform'
  * 核心中还没有语言时保存启动时选定的语言（`main.tsx`）；与当前语言不同时重新加载页面。
  * `update` 立即应用并写入缓存与核心，保存失败时抛出，由设置页显示原因；改了语言时保存后重新加载页面
  */
+/** 本地存储写不进时缓存的语言与核心不一致，每次加载都会想重新加载：同一会话中只为同一语言重新加载一次 */
+function reloadOnce(lang: string) {
+  try {
+    if (sessionStorage.getItem(RELOAD_KEY) === lang) return
+    sessionStorage.setItem(RELOAD_KEY, lang)
+  } catch {
+    return
+  }
+  location.reload()
+}
+
+const RELOAD_KEY = 'rummage.langReload'
+
 export function useAppFonts(connected: boolean) {
   const [appearance, setAppearance] = useState(loadCachedAppearance)
 
@@ -30,7 +43,7 @@ export function useAppFonts(connected: boolean) {
         setAppearance(next)
         saveCachedAppearance(next)
         if (!a.language) return invoke('set_appearance', { appearance: next })
-        if (a.language !== getLang()) location.reload()
+        if (a.language !== getLang()) reloadOnce(a.language)
       })
       .catch((err) => console.warn('无法读取外观设置：', err))
   }, [connected])

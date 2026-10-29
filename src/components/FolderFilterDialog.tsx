@@ -5,7 +5,7 @@ import type { FolderFilter, FolderFilterEntry, PickedFolder, RootInfo } from '..
 import { errorMessage } from '../lib/errors'
 import { folderScope } from '../lib/filter'
 import { abbreviatePath, folderName } from '../lib/format'
-import { t } from '../lib/i18n'
+import { getLang, t } from '../lib/i18n'
 import { useEscape } from '../hooks/useEscape'
 import Checkbox from './Checkbox'
 import ConfirmDialog from './ConfirmDialog'
@@ -114,7 +114,7 @@ export default function FolderFilterDialog({ roots, filter, onSaved, onClose }: 
             const open = expanded.has(root.id)
             const rootOn = isChecked(root.id, '')
             const base = `${root.path.replace(/[\\/]+$/, '')}${root.path.includes('\\') ? '\\' : '/'}`
-            const subs = entries.filter((e) => e.rootId === root.id && e.rel).sort((a, b) => a.rel.localeCompare(b.rel, 'zh-CN'))
+            const subs = entries.filter((e) => e.rootId === root.id && e.rel).sort((a, b) => a.rel.localeCompare(b.rel, getLang() === 'zh' ? 'zh-CN' : getLang()))
             const clearLabel = t('清除「{name}」中的勾选', { name })
             const toggleLabel = open ? t('收起子文件夹') : t('展开子文件夹')
             const narrowed = rootOn && subs.some((s) => s.checked)

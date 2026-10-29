@@ -644,16 +644,17 @@ FunctionEnd
   !include "{{this}}"
 {{/each}}
 
-; Rummage：本模板中自己的文字（韩语、中文、英语），语言与 tauri.conf.json 的 nsis.languages 一致
+; Rummage：本模板中自己的文字（韩语、中文、英语），语言与 tauri.conf.json 的 nsis.languages 一致。
+; 复选框文字经 System::Call 的参数字符串传入，其中不能有半角括号
 LangString RummageForeignData ${LANG_KOREAN} "선택한 폴더에 ${PRODUCTNAME}의 것이 아닌 data 폴더가 이미 있습니다. 다른 폴더를 선택하십시오."
 LangString RummageForeignData ${LANG_SIMPCHINESE} "所选文件夹中已有一个不属于 ${PRODUCTNAME} 的 data 文件夹，请改选其他文件夹。"
 LangString RummageForeignData ${LANG_ENGLISH} "The selected folder already has a data folder that doesn't belong to ${PRODUCTNAME}. Choose another folder."
 LangString RummageKillFailed ${LANG_KOREAN} "Rummage 백그라운드 서비스를 종료하지 못했습니다(오류 코드 $0)."
 LangString RummageKillFailed ${LANG_SIMPCHINESE} "无法结束 Rummage 后台服务（错误码 $0）。"
 LangString RummageKillFailed ${LANG_ENGLISH} "Couldn't stop the Rummage background service (error code $0)."
-LangString RummageAddToPath ${LANG_KOREAN} "PATH에 추가(명령줄에서 rummage-core를 바로 실행)"
+LangString RummageAddToPath ${LANG_KOREAN} "PATH에 추가 - 명령줄에서 rummage-core를 바로 실행"
 LangString RummageAddToPath ${LANG_SIMPCHINESE} "添加到 PATH（可在命令行中直接运行 rummage-core）"
-LangString RummageAddToPath ${LANG_ENGLISH} "Add to PATH (run rummage-core directly from the command line)"
+LangString RummageAddToPath ${LANG_ENGLISH} "Add to PATH - run rummage-core directly from the command line"
 LangString RummagePathReadFailed ${LANG_KOREAN} "PATH를 읽지 못해(오류 코드 $R2) 바꾸지 않았습니다."
 LangString RummagePathReadFailed ${LANG_SIMPCHINESE} "无法读取 PATH（错误码 $R2），未修改。"
 LangString RummagePathReadFailed ${LANG_ENGLISH} "Couldn't read PATH (error code $R2), so it was left unchanged."
@@ -663,9 +664,9 @@ LangString RummagePathNotString ${LANG_ENGLISH} "PATH isn't a string value, so i
 LangString RummagePathTooLong ${LANG_KOREAN} "PATH가 너무 길어 바꾸지 않았습니다."
 LangString RummagePathTooLong ${LANG_SIMPCHINESE} "PATH 过长，未修改。"
 LangString RummagePathTooLong ${LANG_ENGLISH} "PATH is too long, so it was left unchanged."
-LangString RummageDeleteAppData ${LANG_KOREAN} "앱 데이터 삭제(색인한 파일은 삭제하지 않음)"
+LangString RummageDeleteAppData ${LANG_KOREAN} "앱 데이터 삭제 - 색인한 파일은 삭제하지 않음"
 LangString RummageDeleteAppData ${LANG_SIMPCHINESE} "删除应用数据（不会删除被索引的文件）"
-LangString RummageDeleteAppData ${LANG_ENGLISH} "Delete app data (indexed files are not deleted)"
+LangString RummageDeleteAppData ${LANG_ENGLISH} "Delete app data - indexed files are not deleted"
 LangString RummageNoAppData ${LANG_KOREAN} "데이터 폴더 $3에 이 앱의 데이터(index.db와 webview 폴더)가 없어 삭제하지 않았습니다."
 LangString RummageNoAppData ${LANG_SIMPCHINESE} "数据目录 $3 中没有本应用的数据（index.db 和 webview 文件夹），未删除。"
 LangString RummageNoAppData ${LANG_ENGLISH} "The data folder $3 has no data from this app (index.db and the webview folder), so nothing was deleted."

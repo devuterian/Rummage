@@ -83,12 +83,25 @@ pub fn default_app(ext: &str) -> Option<std::path::PathBuf> {
     (n > 0).then(|| std::ffi::OsString::from_wide(&buf[..n]).into())
 }
 
-/// 按系统区域设置（如 ko-KR）选界面语言，规则与前端首次启动时一致（`src/lib/i18n.ts` 的 `detectLang`）。
+/// 按 Windows 的显示语言（如 ko-KR）选界面语言，规则与前端首次启动时一致（`src/lib/i18n.ts` 的 `detectLang`）。
 /// 连上核心、读到外观设置前的文字（数据目录对话框、托盘菜单）先按它显示
 pub fn system_lang() -> rummage_proto::Lang {
-    let name = windows_registry::CURRENT_USER
-        .open(r"Control Panel\International")
-        .and_then(|key| key.get_string("LocaleName"))
+    // 显示语言：用户改过时在 Desktop 的 PreferredUILanguages，否则看系统安装的 MachinePreferredUILanguages；
+    // 都读不到时退回区域格式（LocaleName）
+    let cu = windows_registry::CURRENT_USER;
+    let first = |path: &str, name: &str| {
+        cu.open(path)
+            .and_then(|key| key.get_multi_string(name))
+            .ok()
+            .and_then(|v| v.into_iter().find(|s| !s.is_empty()))
+    };
+    let name = first(r"Control Panel\Desktop", "PreferredUILanguages")
+        .or_else(|| first(r"Control Panel\Desktop\MuiCached", "MachinePreferredUILanguages"))
+        .or_else(|| {
+            cu.open(r"Control Panel\International")
+                .and_then(|key| key.get_string("LocaleName"))
+                .ok()
+        })
         .unwrap_or_default()
         .to_lowercase();
     if name.starts_with("zh") {

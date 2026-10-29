@@ -38,7 +38,7 @@ body {
 /* 韩文按词换行；路径等不能断词的长串仍可在任意位置换行，不撑破布局 */
 html[lang='ko'] body {
   word-break: keep-all;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 input,
