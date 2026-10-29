@@ -23,7 +23,9 @@ use std::time::Duration;
 
 use rummage_index::{FileRow, SegmentRow, ensure_local, quick_hash};
 use rummage_media::Region;
-use rummage_proto::{ApiError, FileInfo, JobInfo, Reply, SegmentPreview, VectorSpaceInfo, params};
+use rummage_proto::{
+    ApiError, FileInfo, JobInfo, Reply, SegmentPreview, VectorSpaceInfo, params, tr,
+};
 
 mod embed;
 
@@ -59,7 +61,11 @@ fn row(state: &State, id: i64) -> Result<FileRow, ApiError> {
     db(state)?.file(id).map_err(unavailable)?.ok_or_else(|| {
         api_error(
             ApiError::BAD_REQUEST,
-            "找不到这个文件，它可能已从索引中移除。",
+            tr!(
+                "找不到这个文件，它可能已从索引中移除。",
+                "이 파일을 찾을 수 없습니다. 색인에서 제거되었을 수 있습니다.",
+                "This file can't be found. It may have been removed from the index."
+            ),
         )
     })
 }
@@ -195,10 +201,18 @@ fn local_file(state: &State, id: i64) -> Result<(FileRow, &Path, Vec<u8>), ApiEr
     let f = row(state, id)?;
     let dir = &opened(state)?.dir;
     if f.missing {
-        return Err(bad("找不到文件所在的文件夹。".into()));
+        return Err(bad(tr!(
+            "找不到文件所在的文件夹。",
+            "파일이 있는 폴더를 찾을 수 없습니다.",
+            "The folder containing this file can't be found."
+        )));
     }
     if f.offline {
-        return Err(bad("文件所在的设备未连接。".into()));
+        return Err(bad(tr!(
+            "文件所在的设备未连接。",
+            "파일이 있는 장치가 연결되어 있지 않습니다.",
+            "The drive containing this file isn't connected."
+        )));
     }
     ensure_local(&f.path).map_err(|err| bad(err.to_string()))?;
     let qh = match &f.quick_hash {
@@ -243,7 +257,11 @@ fn save(dir: &Path, path: &Path, bytes: &[u8]) -> Result<Reply, ApiError> {
         log::warn!("无法保存缩略图 {}：{err}", path.display());
         return Err(api_error(
             ApiError::UNAVAILABLE,
-            "缩略图无法保存，请检查数据目录所在磁盘的空间。",
+            tr!(
+                "缩略图无法保存，请检查数据目录所在磁盘的空间。",
+                "미리보기 이미지를 저장할 수 없습니다. 데이터 폴더가 있는 디스크의 공간을 확인하십시오.",
+                "Can't save the thumbnail. Check the free space on the disk that holds the data folder."
+            ),
         ));
     }
     Ok(Reply::Thumbnail {
@@ -266,7 +284,14 @@ pub(super) fn thumbnail(state: &State, id: i64) -> Result<Reply, ApiError> {
         rummage_media::thumbnail(&f.path, aspect, params::max_image_pixels(&state.params()))
             .map_err(|err| {
                 log::warn!("无法生成 {} 的缩略图：{err}", f.path.display());
-                api_error(ApiError::BAD_REQUEST, "无法生成这个文件的缩略图。")
+                api_error(
+                    ApiError::BAD_REQUEST,
+                    tr!(
+                        "无法生成这个文件的缩略图。",
+                        "이 파일의 미리보기 이미지를 만들 수 없습니다.",
+                        "Can't create a thumbnail for this file."
+                    ),
+                )
             })?;
     save(dir, &path, &bytes)
 }
@@ -275,7 +300,14 @@ pub(super) fn video_frame(state: &State, id: i64, ms: u64) -> Result<Reply, ApiE
     let ffmpeg = config(state)?.ffmpeg.clone();
     let (f, dir, qh) = local_file(state, id)?;
     if f.kind != "video" {
-        return Err(api_error(ApiError::BAD_REQUEST, "只有视频才能取画面。"));
+        return Err(api_error(
+            ApiError::BAD_REQUEST,
+            tr!(
+                "只有视频才能取画面。",
+                "동영상에서만 화면을 가져올 수 있습니다.",
+                "Frames can only be taken from videos."
+            ),
+        ));
     }
     let path = derived_dir(dir, &qh).join(format!("t{ms}.webp"));
     if let Some(reply) = cached(&path) {
@@ -290,7 +322,14 @@ pub(super) fn video_frame(state: &State, id: i64, ms: u64) -> Result<Reply, ApiE
         .and_then(|img| rummage_media::shrink_webp(img, &f.path).map_err(|err| err.to_string()))
         .map_err(|err| {
             log::warn!("无法取 {} 在 {ms} 毫秒处的画面：{err}", f.path.display());
-            api_error(ApiError::BAD_REQUEST, "无法取出这一刻的画面。")
+            api_error(
+                ApiError::BAD_REQUEST,
+                tr!(
+                    "无法取出这一刻的画面。",
+                    "이 시점의 화면을 가져올 수 없습니다.",
+                    "Can't get the frame at this moment."
+                ),
+            )
         })?;
     save(dir, &path, &bytes)
 }
@@ -313,13 +352,25 @@ pub(super) fn region_thumb(state: &State, segment_id: i64) -> Result<Reply, ApiE
     let seg = db(state)?
         .segment(segment_id)
         .map_err(unavailable)?
-        .ok_or_else(|| bad("找不到这个结果，它可能已从索引中移除。"))?;
+        .ok_or_else(|| {
+            bad(&tr!(
+                "找不到这个结果，它可能已从索引中移除。",
+                "이 결과를 찾을 수 없습니다. 색인에서 제거되었을 수 있습니다.",
+                "This result can't be found. It may have been removed from the index."
+            ))
+        })?;
     // 文档的内嵌图片或视频
     let loc: serde_json::Value = serde_json::from_str(&seg.locator_json).unwrap_or_default();
     if loc.get("embed").is_some() {
         return embed::embed_thumb(state, &seg, &loc);
     }
-    let r = region(&seg.locator_json).ok_or_else(|| bad("这个结果不是长图的一段。"))?;
+    let r = region(&seg.locator_json).ok_or_else(|| {
+        bad(&tr!(
+            "这个结果不是长图的一段。",
+            "이 결과는 긴 이미지의 일부가 아닙니다.",
+            "This result isn't part of a long image."
+        ))
+    })?;
     let (f, dir, qh) = local_file(state, seg.file_id)?;
     let name = format!("r{}_{}_{}_{}.webp", r.x, r.y, r.width, r.height);
     let path = derived_dir(dir, &qh).join(name);
@@ -333,7 +384,11 @@ pub(super) fn region_thumb(state: &State, segment_id: i64) -> Result<Reply, ApiE
     let img = rummage_media::decode(&f.path, params::max_image_pixels(&state.params())).map_err(
         |err| {
             log::warn!("无法解码长图 {}：{err}", f.path.display());
-            bad("无法读取这张图片。")
+            bad(&tr!(
+                "无法读取这张图片。",
+                "이 이미지를 읽을 수 없습니다.",
+                "Can't read this image."
+            ))
         },
     )?;
     // 区域来自数据库，文件可能已被换成更小的图、还没重新索引
@@ -342,12 +397,20 @@ pub(super) fn region_thumb(state: &State, segment_id: i64) -> Result<Reply, ApiE
         && u64::from(r.x) + u64::from(r.width) <= u64::from(img.width)
         && u64::from(r.y) + u64::from(r.height) <= u64::from(img.height);
     if !inside {
-        return Err(bad("图片已经变化，请等重新索引后再试。"));
+        return Err(bad(&tr!(
+            "图片已经变化，请等重新索引后再试。",
+            "이미지가 바뀌었습니다. 다시 색인된 뒤 시도하십시오.",
+            "The image has changed. Try again after it's re-indexed."
+        )));
     }
     let bytes =
         rummage_media::shrink_webp(rummage_media::crop(&img, r), &f.path).map_err(|err| {
             log::warn!("无法生成 {} 的裁剪图：{err}", f.path.display());
-            bad("无法生成这张图片的裁剪图。")
+            bad(&tr!(
+                "无法生成这张图片的裁剪图。",
+                "이 이미지의 잘라낸 부분을 만들 수 없습니다.",
+                "Can't create a crop of this image."
+            ))
         })?;
     save(dir, &path, &bytes)
 }

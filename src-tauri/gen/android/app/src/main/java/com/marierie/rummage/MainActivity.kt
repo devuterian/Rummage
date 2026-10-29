@@ -1,4 +1,4 @@
-package com.cooksleep.rummage
+package com.marierie.rummage
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge

@@ -11,6 +11,7 @@ import { useCoreEvent } from '../../hooks/useCoreEvent'
 import { useParamValues } from '../../hooks/useParamValues'
 import ChangeDataDirButton from '../ChangeDataDirButton'
 import { renderMessage } from '../ConfirmDialog'
+import { t } from '../../lib/i18n'
 import { WarningIcon } from '../icons'
 import LoadError from '../LoadError'
 import { NOTICE_BOX } from '../settings/styles'
@@ -45,7 +46,7 @@ export default function EstimateStep({ kinds, preset, selftest, minFreeGb }: Pro
       })
       .catch((err) => {
         console.warn('无法预估索引：', err)
-        setError(errorMessage(err, '无法统计文件，请稍后再试。'))
+        setError(errorMessage(err, t('无法统计文件，请稍后再试。')))
       })
   }, [])
 
@@ -65,19 +66,19 @@ export default function EstimateStep({ kinds, preset, selftest, minFreeGb }: Pro
 
   return (
     <div>
-      <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">准备建立索引</h2>
-      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">索引在后台进行，开始后就能搜索，最近修改的文件最先可以搜到。</p>
+      <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">{t('准备建立索引')}</h2>
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('索引在后台进行，开始后就能搜索，最近修改的文件最先可以搜到。')}</p>
 
       {est && (
         <ul className="mt-4 space-y-2">
           {est.roots.map((root) => {
             const n = (k: string) => root.kinds[k]?.files ?? 0
             const parts = [
-              kinds.documents && `文档 ${n('document')}`,
-              kinds.images && `图片 ${n('image')}`,
-              kinds.audio && `音频 ${n('audio')}`,
-              kinds.video && `视频 ${n('video')}`,
-              `共 ${root.files} 个文件`,
+              kinds.documents && t('文档 {n}', { n: n('document') }),
+              kinds.images && t('图片 {n}', { n: n('image') }),
+              kinds.audio && t('音频 {n}', { n: n('audio') }),
+              kinds.video && t('视频 {n}', { n: n('video') }),
+              t('共 {n} 个文件', { n: root.files }),
             ].filter(Boolean)
             return (
               <li key={root.id} className="rounded-xl bg-black/[0.03] px-3 py-2.5 dark:bg-white/[0.04]">
@@ -85,7 +86,7 @@ export default function EstimateStep({ kinds, preset, selftest, minFreeGb }: Pro
                   <PathText path={root.path} />
                   <HoverTip label={root.path} wrap />
                 </p>
-                <p className="text-xs text-gray-400 dark:text-gray-500">{root.scanning ? '正在统计文件' : parts.join(' · ')}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">{root.scanning ? t('正在统计文件') : parts.join(' · ')}</p>
               </li>
             )
           })}
@@ -94,33 +95,34 @@ export default function EstimateStep({ kinds, preset, selftest, minFreeGb }: Pro
 
       {r && (
         <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-          <dt className="text-gray-500 dark:text-gray-400">预计用时</dt>
+          <dt className="text-gray-500 dark:text-gray-400">{t('预计用时')}</dt>
           <dd className="text-gray-700 dark:text-gray-200">{formatTimeRange(r.time)}</dd>
-          <dt className="text-gray-500 dark:text-gray-400">占用空间</dt>
+          <dt className="text-gray-500 dark:text-gray-400">{t('占用空间')}</dt>
           <dd className="text-gray-700 dark:text-gray-200">{formatSizeRange(r.disk)}</dd>
         </dl>
       )}
       {r && switched && <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">{switchedText(switched)}</p>}
-      {r && stale && <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">参数已修改，预估按修改前测得的速度，重新检测后更新</p>}
+      {r && stale && <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">{t('参数已修改，预估按修改前测得的速度，重新检测后更新')}</p>}
       {r && est.freeGb != null && diskShort(r.disk.high, est.freeGb, minFreeGb) && (
         <div className={`mt-3 ${NOTICE_BOX}`}>
           <WarningIcon className="mt-px h-4 w-4 flex-shrink-0" />
           <div className="flex-1 space-y-1.5">
-            <p>数据目录所在磁盘的剩余空间可能不够。</p>
+            <p>{t('数据目录所在磁盘的剩余空间可能不够。')}</p>
             <p>
-              剩余 {formatSize(est.freeGb * 2 ** 30)}，索引最多约占用 {formatSize(r.disk.high)}。剩余空间低于 {minFreeGb} GB 时，建立索引会自动暂停。
+              {t('剩余 {free}，索引最多约占用 {high}。剩余空间低于 {min} GB 时，建立索引会自动暂停。', { free: formatSize(est.freeGb * 2 ** 30), high: formatSize(r.disk.high), min: minFreeGb })}
             </p>
             {/* Android 上数据目录是应用私有目录，不能更改 */}
-            {!isAndroid && <ChangeDataDirButton label="更改数据目录" className={`mt-1 ${SMALL_BUTTON}`} />}
+            {!isAndroid && <ChangeDataDirButton label={t('更改数据目录')} className={`mt-1 ${SMALL_BUTTON}`} />}
           </div>
         </div>
       )}
-      {est?.scanning && <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">还在统计文件，数量会继续增加</p>}
+      {est?.scanning && <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">{t('还在统计文件，数量会继续增加')}</p>}
       <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
-        {r && r.nameOnly > 0 ? `其余 ${r.nameOnly} 个文件只按文件名索引。` : ''}预估基于设备检测的速度{r && r.audioFiles + r.videoFiles > 0 ? '，音频和视频的时长按文件大小估算' : ''}，实际用时受文件内容影响。
+        {r && r.nameOnly > 0 ? t('其余 {n} 个文件只按文件名索引。', { n: r.nameOnly }) : ''}
+        {r && r.audioFiles + r.videoFiles > 0 ? t('预估基于设备检测的速度，音频和视频的时长按文件大小估算，实际用时受文件内容影响。') : t('预估基于设备检测的速度，实际用时受文件内容影响。')}
       </p>
       <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
-        {renderMessage(`建立索引的方式可在「设置 → 资源」中调整，如${isAndroid ? '低电量、未接电源、亮屏或发热时暂停' : '低电量、未接电源或全屏时暂停'}。`, 'font-semibold')}
+        {renderMessage(isAndroid ? t('建立索引的方式可在「设置 → 资源」中调整，如低电量、未接电源、亮屏或发热时暂停。') : t('建立索引的方式可在「设置 → 资源」中调整，如低电量、未接电源或全屏时暂停。'), 'font-semibold')}
       </p>
       {error && <LoadError message={error} onRetry={load} className="mt-2" />}
     </div>

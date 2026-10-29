@@ -73,10 +73,10 @@ tasks.named("preBuild") {
 
 android {
     compileSdk = 36
-    namespace = "com.cooksleep.rummage"
+    namespace = "com.marierie.rummage"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "com.cooksleep.rummage"
+        applicationId = "com.marierie.rummage"
         minSdk = 30
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()

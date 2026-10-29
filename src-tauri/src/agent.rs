@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 
 use jsonc_parser::cst::{CstInputValue, CstObject, CstRootNode};
 use jsonc_parser::{ParseOptions, json};
-use rummage_proto::ApiError;
+use rummage_proto::{ApiError, tr, trs};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::{AppHandle, Manager, Runtime};
@@ -363,14 +363,18 @@ fn edit_mcp(client: Client, exe: &str, add: bool) -> Result<(), ApiError> {
     let Some((dir, file)) = client_paths(client).filter(|(dir, _)| dir.is_dir()) else {
         return Err(error(
             ApiError::BAD_REQUEST,
-            "没有检测到这个 AI 工具，请复制配置后手动添加。",
+            trs!(
+                "没有检测到这个 AI 工具，请复制配置后手动添加。",
+                "이 AI 도구를 찾을 수 없습니다. 설정을 복사해 직접 추가하십시오.",
+                "This AI tool was not detected. Copy the configuration and add it manually."
+            ),
         ));
     };
     let text = read_text(&file).map_err(|err| {
         log::warn!("无法读取 MCP 配置 {}：{err}", file.display());
         error(
             ApiError::INTERNAL,
-            "无法读取这个 AI 工具的配置文件，请复制配置后手动添加。",
+            trs!("无法读取这个 AI 工具的配置文件，请复制配置后手动添加。", "이 AI 도구의 설정 파일을 읽을 수 없습니다. 설정을 복사해 직접 추가하십시오.", "Couldn't read this AI tool's configuration file. Copy the configuration and add it manually."),
         )
     })?;
     let codex = client == Client::Codex;
@@ -382,7 +386,11 @@ fn edit_mcp(client: Client, exe: &str, add: bool) -> Result<(), ApiError> {
     if state == State::Invalid {
         return Err(error(
             ApiError::BAD_REQUEST,
-            "这个 AI 工具的配置文件格式有误，请复制配置后手动添加。",
+            trs!(
+                "这个 AI 工具的配置文件格式有误，请复制配置后手动添加。",
+                "이 AI 도구의 설정 파일 형식이 잘못되었습니다. 설정을 복사해 직접 추가하십시오.",
+                "This AI tool's configuration file is malformed. Copy the configuration and add it manually."
+            ),
         ));
     }
     let next = match (codex, add) {
@@ -401,7 +409,7 @@ fn edit_mcp(client: Client, exe: &str, add: bool) -> Result<(), ApiError> {
             log::warn!("无法写入 MCP 配置 {}：{err}", file.display());
             error(
                 ApiError::INTERNAL,
-                "无法写入这个 AI 工具的配置文件，请关闭它后重试，或复制配置后手动添加。",
+                trs!("无法写入这个 AI 工具的配置文件，请关闭它后重试，或复制配置后手动添加。", "이 AI 도구의 설정 파일에 쓸 수 없습니다. 도구를 닫고 다시 시도하거나, 설정을 복사해 직접 추가하십시오.", "Couldn't write this AI tool's configuration file. Close the tool and try again, or copy the configuration and add it manually."),
             )
         })
 }
@@ -419,7 +427,11 @@ fn bundled_skill<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, ApiError> {
         log::warn!("无法取得资源目录：{err}");
         error(
             ApiError::INTERNAL,
-            "找不到 Skill 所在的目录，请重新安装 Rummage。",
+            trs!(
+                "找不到 Skill 所在的目录，请重新安装 Rummage。",
+                "Skill 폴더를 찾을 수 없습니다. Rummage를 다시 설치하십시오.",
+                "Couldn't find the Skill folder. Reinstall Rummage."
+            ),
         )
     })?;
     // 资源目录经过规范化，Windows 上带 `\\?\` 前缀
@@ -501,12 +513,24 @@ fn skill_status(target: SkillTarget, src: &Path) -> SkillStatus {
 }
 
 fn edit_skill(target: SkillTarget, src: &Path, install: bool) -> Result<(), ApiError> {
-    let dst = skill_path(target)
-        .ok_or_else(|| error(ApiError::INTERNAL, "找不到用户文件夹，请手动复制 Skill。"))?;
+    let dst = skill_path(target).ok_or_else(|| {
+        error(
+            ApiError::INTERNAL,
+            trs!(
+                "找不到用户文件夹，请手动复制 Skill。",
+                "사용자 폴더를 찾을 수 없습니다. Skill을 직접 복사하십시오.",
+                "Couldn't find your user folder. Copy the Skill manually."
+            ),
+        )
+    })?;
     if dst.exists() && !is_ours(&dst) {
         return Err(error(
             ApiError::BAD_REQUEST,
-            "这个位置已有另一个名为 rummage 的 Skill，请先手动处理。",
+            trs!(
+                "这个位置已有另一个名为 rummage 的 Skill，请先手动处理。",
+                "이 위치에 rummage라는 다른 Skill이 이미 있습니다. 먼저 직접 정리하십시오.",
+                "Another Skill named rummage already exists here. Deal with it manually first."
+            ),
         ));
     }
     let result = if dst.exists() {
@@ -526,9 +550,9 @@ fn edit_skill(target: SkillTarget, src: &Path, install: bool) -> Result<(), ApiE
             dst.display()
         );
         let msg = if install {
-            "无法安装 Skill，请稍后重试，或打开 Skill 文件夹手动复制。"
+            trs!("无法安装 Skill，请稍后重试，或打开 Skill 文件夹手动复制。", "Skill을 설치할 수 없습니다. 잠시 후 다시 시도하거나, Skill 폴더를 열어 직접 복사하십시오.", "Couldn't install the Skill. Try again later, or open the Skill folder and copy it manually.")
         } else {
-            "无法移除 Skill，请稍后重试。"
+            trs!("无法移除 Skill，请稍后重试。", "Skill을 제거할 수 없습니다. 잠시 후 다시 시도하십시오.", "Couldn't remove the Skill. Try again later.")
         };
         error(ApiError::INTERNAL, msg)
     })
@@ -541,7 +565,11 @@ fn core_exe() -> Result<String, ApiError> {
         log::warn!("无法取得程序路径：{err}");
         error(
             ApiError::INTERNAL,
-            "无法取得 Rummage 的安装位置，请稍后再试。",
+            trs!(
+                "无法取得 Rummage 的安装位置，请稍后再试。",
+                "Rummage 설치 위치를 확인할 수 없습니다. 잠시 후 다시 시도하십시오.",
+                "Couldn't determine where Rummage is installed. Try again later."
+            ),
         )
     })?;
     Ok(exe
@@ -577,7 +605,11 @@ async fn run<R: Runtime>(
     .map_err(|err| {
         error(
             ApiError::INTERNAL,
-            format!("读取 AI 工具的配置时出错：{err}"),
+            tr!(
+                "读取 AI 工具的配置时出错：{err}",
+                "AI 도구 설정을 읽는 중 오류가 발생했습니다: {err}",
+                "Error reading AI tool configuration: {err}"
+            ),
         )
     })?
 }
@@ -624,14 +656,22 @@ pub async fn open_skill_dir<R: Runtime>(app: AppHandle<R>) -> Result<(), ApiErro
         .map_err(|err| {
             error(
                 ApiError::INTERNAL,
-                format!("打开 Skill 文件夹时出错：{err}"),
+                tr!(
+                    "打开 Skill 文件夹时出错：{err}",
+                    "Skill 폴더를 여는 중 오류가 발생했습니다: {err}",
+                    "Error opening the Skill folder: {err}"
+                ),
             )
         })?
         .map_err(|err| {
             log::warn!("无法打开 Skill 文件夹：{err}");
             error(
                 ApiError::INTERNAL,
-                "无法打开 Skill 所在的文件夹，请重新安装 Rummage。",
+                trs!(
+                    "无法打开 Skill 所在的文件夹，请重新安装 Rummage。",
+                    "Skill 폴더를 열 수 없습니다. Rummage를 다시 설치하십시오.",
+                    "Couldn't open the Skill folder. Reinstall Rummage."
+                ),
             )
         })
 }

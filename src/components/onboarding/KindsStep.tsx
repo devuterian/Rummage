@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { formatSize } from '../../lib/format'
+import { t } from '../../lib/i18n'
 import { type Kinds, VIDEO_PRESETS } from '../../lib/kinds'
 import { isAndroid } from '../../lib/platform'
 import { renderMessage } from '../ConfirmDialog'
@@ -73,25 +74,25 @@ interface Props {
  */
 export default function KindsStep({ kinds, mmprojBytes, mmprojReady, section, onChange, preset, onPreset }: Props) {
   const icon = 'h-4 w-4'
-  const desc = '选中的类型会识别内容，其余文件仍可按文件名搜索。'
+  const desc = t('选中的类型会识别内容，其余文件仍可按文件名搜索。')
   // Android 上一个模型包含全部模态，不另外下载
-  const extra = mmprojReady || isAndroid ? '' : `；需另外下载约 ${formatSize(mmprojBytes)} 的图片与音视频模型`
+  const extra = mmprojReady || isAndroid ? '' : t('；需另外下载约 {size} 的图片与音视频模型', { size: formatSize(mmprojBytes) })
   const cards: { key: keyof Kinds; icon: ReactNode; title: string; desc: string }[] = [
-    { key: 'documents', icon: <DocumentIcon className={icon} />, title: '文档', desc: 'PDF、Office 与文本文件' },
-    { key: 'images', icon: <ImageIcon className={icon} />, title: '图片', desc: `照片、截图、图表等${extra}` },
-    { key: 'audio', icon: <AudioIcon className={icon} />, title: '音频', desc: `录音、音乐、语音消息等${extra}` },
-    { key: 'video', icon: <VideoIcon className={icon} />, title: '视频', desc: `找到视频中的某个片段${extra}` },
+    { key: 'documents', icon: <DocumentIcon className={icon} />, title: t('文档'), desc: t('PDF、Office 与文本文件') },
+    { key: 'images', icon: <ImageIcon className={icon} />, title: t('图片'), desc: t('照片、截图、图表等') + extra },
+    { key: 'audio', icon: <AudioIcon className={icon} />, title: t('音频'), desc: t('录音、音乐、语音消息等') + extra },
+    { key: 'video', icon: <VideoIcon className={icon} />, title: t('视频'), desc: t('找到视频中的某个片段') + extra },
   ]
   return (
     <div>
       {section ? (
         <>
-          <h4 className="text-sm font-bold text-gray-800 dark:text-gray-100">文件类型</h4>
+          <h4 className="text-sm font-bold text-gray-800 dark:text-gray-100">{t('文件类型')}</h4>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">{desc}</p>
         </>
       ) : (
         <>
-          <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">希望按内容查找哪些文件</h2>
+          <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">{t('希望按内容查找哪些文件')}</h2>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{desc}</p>
         </>
       )}
@@ -102,11 +103,11 @@ export default function KindsStep({ kinds, mmprojBytes, mmprojReady, section, on
       </div>
       {kinds.video && onPreset && (
         <div className="mt-5">
-          <p className="text-sm text-gray-700 dark:text-gray-200">找视频时，你最常想找什么</p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{renderMessage('之后可在「设置 → 索引」中修改')}</p>
-          <div role="radiogroup" aria-label="视频识别方式" className="mt-3 grid gap-2 sm:grid-cols-3">
+          <p className="text-sm text-gray-700 dark:text-gray-200">{t('找视频时，你最常想找什么')}</p>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{renderMessage(t('之后可在「设置 → 索引」中修改'))}</p>
+          <div role="radiogroup" aria-label={t('视频识别方式')} className="mt-3 grid gap-2 sm:grid-cols-3">
             {VIDEO_PRESETS.map((p) => (
-              <PresetCard key={p.value} title={p.title} desc={p.desc} checked={preset === p.value} onSelect={() => onPreset(p.value)} />
+              <PresetCard key={p.value} title={t(p.title)} desc={t(p.desc)} checked={preset === p.value} onSelect={() => onPreset(p.value)} />
             ))}
           </div>
         </div>

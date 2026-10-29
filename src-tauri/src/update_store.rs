@@ -8,7 +8,7 @@ use std::io::{self, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use rummage_proto::ApiError;
+use rummage_proto::{ApiError, tr, trs};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, Runtime};
@@ -32,7 +32,14 @@ impl Drop for BusyGuard {
 /// 开始下载或安装；已有任务在进行中时报错
 pub fn acquire() -> Result<BusyGuard, ApiError> {
     if BUSY.swap(true, Ordering::AcqRel) {
-        return Err(error(UPDATE, "已有更新任务在进行中。"));
+        return Err(error(
+            UPDATE,
+            trs!(
+                "已有更新任务在进行中。",
+                "이미 업데이트 작업이 진행 중입니다.",
+                "An update task is already in progress."
+            ),
+        ));
     }
     Ok(BusyGuard)
 }
@@ -85,12 +92,40 @@ pub fn is_locked(err: &io::Error) -> bool {
 /// 保存失败中用户能自行处理的原因给出整句
 pub fn save_error(err: io::Error) -> ApiError {
     if is_locked(&err) {
-        return error(UPDATE, "更新包文件被占用，请稍后重试。");
+        return error(
+            UPDATE,
+            trs!(
+                "更新包文件被占用，请稍后重试。",
+                "업데이트 파일을 다른 프로그램이 사용 중입니다. 잠시 후 다시 시도하십시오.",
+                "The update package file is in use. Try again later."
+            ),
+        );
     }
     match err.kind() {
-        ErrorKind::StorageFull => error(UPDATE, "磁盘空间不足，无法保存更新包。"),
-        ErrorKind::PermissionDenied => error(UPDATE, "没有写入权限，无法保存更新包。"),
-        _ => error(UPDATE, format!("保存更新包失败：{err}")),
+        ErrorKind::StorageFull => error(
+            UPDATE,
+            trs!(
+                "磁盘空间不足，无法保存更新包。",
+                "디스크 공간이 부족해 업데이트 파일을 저장할 수 없습니다.",
+                "Not enough disk space to save the update package."
+            ),
+        ),
+        ErrorKind::PermissionDenied => error(
+            UPDATE,
+            trs!(
+                "没有写入权限，无法保存更新包。",
+                "쓰기 권한이 없어 업데이트 파일을 저장할 수 없습니다.",
+                "No write permission, so the update package can't be saved."
+            ),
+        ),
+        _ => error(
+            UPDATE,
+            tr!(
+                "保存更新包失败：{err}",
+                "업데이트 파일을 저장하지 못했습니다: {err}",
+                "Failed to save the update package: {err}"
+            ),
+        ),
     }
 }
 

@@ -24,7 +24,7 @@ use std::time::Instant;
 
 use rummage_core::client::Client;
 use rummage_core::{MAX_LINE, Stream, read_line, write_line};
-use rummage_proto::{ApiError, ClientMsg, CoreMsg, Event, Reply, Request, decode, encode};
+use rummage_proto::{ApiError, ClientMsg, CoreMsg, Event, Reply, Request, decode, encode, tr};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tokio::io::{BufReader, ReadHalf};
@@ -118,7 +118,11 @@ fn set_status<R: Runtime>(app: &AppHandle<R>, status: Status) {
 pub fn unavailable() -> ApiError {
     ApiError {
         code: ApiError::UNAVAILABLE.into(),
-        message: "后台服务未连接，请稍后再试。".into(),
+        message: tr!(
+            "后台服务未连接，请稍后再试。",
+            "백그라운드 서비스에 연결되지 않았습니다. 잠시 후 다시 시도하십시오.",
+            "The background service is not connected. Try again in a moment."
+        ),
     }
 }
 
@@ -287,6 +291,12 @@ async fn session<R: Runtime>(app: &AppHandle<R>, client: Client) {
             // 日志开关存在核心的参数中；数据库不可用时读不到，保持开启
             if let Ok(Reply::Params { values }) = request(app, Request::GetParams).await {
                 diagnostics::apply_params(&values);
+            }
+            // 托盘菜单、通知等由本进程生成的文字按外观设置中的界面语言显示
+            if let Ok(Reply::Appearance(a)) = request(app, Request::GetAppearance).await
+                && let Some(lang) = a.language
+            {
+                rummage_proto::i18n::set_lang(lang);
             }
             #[cfg(desktop)]
             tray::refresh(app).await;

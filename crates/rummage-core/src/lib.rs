@@ -69,9 +69,23 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 
 #[derive(Debug, thiserror::Error)]
 pub enum BindError {
-    #[error("Rummage 后台服务已在运行。")]
+    #[error(
+        "{}",
+        rummage_proto::trs!(
+            "Rummage 后台服务已在运行。",
+            "Rummage 백그라운드 서비스가 이미 실행 중입니다.",
+            "The Rummage background service is already running."
+        )
+    )]
     AlreadyRunning,
-    #[error("管道名被其他程序占用，Rummage 后台服务无法启动。")]
+    #[error(
+        "{}",
+        rummage_proto::trs!(
+            "管道名被其他程序占用，Rummage 后台服务无法启动。",
+            "다른 프로그램이 파이프 이름을 사용 중이어서 Rummage 백그라운드 서비스를 시작할 수 없습니다.",
+            "Another program is using the pipe name, so the Rummage background service can't start."
+        )
+    )]
     Occupied,
     #[error("无法创建 IPC 管道：{0}")]
     Io(#[from] io::Error),

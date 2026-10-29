@@ -13,7 +13,7 @@ use std::sync::Mutex;
 
 use rummage_index::FsError;
 use rummage_proto::config::{self, ConfigFolder, Imported};
-use rummage_proto::{ApiError, ParamValue, Reply, Request, RootInfo};
+use rummage_proto::{ApiError, ParamValue, Reply, Request, RootInfo, tr, trs};
 use serde::Serialize;
 use tauri::{AppHandle, Manager, Runtime};
 
@@ -105,14 +105,36 @@ pub(crate) fn read(path: &Path) -> Result<String, ApiError> {
         .map_err(|err| error(ApiError::BAD_REQUEST, err.to_string()))?;
     let too_large = fs::metadata(path).is_ok_and(|m| m.len() > MAX_CONFIG_BYTES);
     if too_large {
-        return Err(error(ApiError::BAD_REQUEST, "这不是 Rummage 的配置文件。"));
+        return Err(error(
+            ApiError::BAD_REQUEST,
+            trs!(
+                "这不是 Rummage 的配置文件。",
+                "Rummage 설정 파일이 아닙니다.",
+                "This is not a Rummage configuration file."
+            ),
+        ));
     }
     let bytes = fs::read(path).map_err(|err| {
         log::warn!("无法读取配置文件 {}：{err}", path.display());
-        error(ApiError::BAD_REQUEST, "无法读取所选文件，请重新选择。")
+        error(
+            ApiError::BAD_REQUEST,
+            trs!(
+                "无法读取所选文件，请重新选择。",
+                "선택한 파일을 읽을 수 없습니다. 다시 선택하십시오.",
+                "Couldn't read the selected file. Choose it again."
+            ),
+        )
     })?;
-    String::from_utf8(bytes)
-        .map_err(|_| error(ApiError::BAD_REQUEST, "这不是 Rummage 的配置文件。"))
+    String::from_utf8(bytes).map_err(|_| {
+        error(
+            ApiError::BAD_REQUEST,
+            trs!(
+                "这不是 Rummage 的配置文件。",
+                "Rummage 설정 파일이 아닙니다.",
+                "This is not a Rummage configuration file."
+            ),
+        )
+    })
 }
 
 async fn current_params<R: Runtime>(
@@ -157,7 +179,11 @@ pub async fn export_config<R: Runtime>(app: AppHandle<R>) -> Result<bool, ApiErr
     let text = serde_json::to_string_pretty(&file)
         .expect("配置只含字符串键的映射和可序列化的值，序列化不会失败");
     let [y, m, d, ..] = platform::local_time();
-    let name = format!("Rummage 配置 {y:04}-{m:02}-{d:02}.json");
+    let name = tr!(
+        "Rummage 配置 {y:04}-{m:02}-{d:02}.json",
+        "Rummage 설정 {y:04}-{m:02}-{d:02}.json",
+        "Rummage config {y:04}-{m:02}-{d:02}.json"
+    );
     save(&app, &name, text).await
 }
 
@@ -168,7 +194,7 @@ async fn save<R: Runtime>(app: &AppHandle<R>, name: &str, text: String) -> Resul
         app,
         name,
         "application/json",
-        "配置未能保存，请确认所选位置可以写入后重试。",
+        trs!("配置未能保存，请确认所选位置可以写入后重试。", "설정을 저장하지 못했습니다. 선택한 위치에 쓸 수 있는지 확인한 뒤 다시 시도하십시오.", "Couldn't save the configuration. Make sure the selected location is writable, then try again."),
         move |path| fs::write(path, text),
     )
     .await
@@ -179,12 +205,18 @@ async fn save<R: Runtime>(app: &AppHandle<R>, name: &str, text: String) -> Resul
 #[cfg(not(target_os = "android"))]
 async fn save<R: Runtime>(app: &AppHandle<R>, name: &str, text: String) -> Result<bool, ApiError> {
     let (tx, rx) = tokio::sync::oneshot::channel();
-    crate::file_dialog(app, "导出配置")
-        .set_file_name(name)
-        .add_filter("Rummage 配置", &["json"])
-        .save_file(move |path| {
-            let _ = tx.send(path);
-        });
+    crate::file_dialog(
+        app,
+        trs!("导出配置", "설정 내보내기", "Export configuration"),
+    )
+    .set_file_name(name)
+    .add_filter(
+        trs!("Rummage 配置", "Rummage 설정", "Rummage configuration"),
+        &["json"],
+    )
+    .save_file(move |path| {
+        let _ = tx.send(path);
+    });
     let Some(target) = rx.await.ok().flatten() else {
         return Ok(false);
     };
@@ -192,17 +224,21 @@ async fn save<R: Runtime>(app: &AppHandle<R>, name: &str, text: String) -> Resul
         log::warn!("无法读取所选的保存位置：{err}");
         error(
             ApiError::BAD_REQUEST,
-            "无法读取所选的保存位置，请重新选择。",
+            trs!(
+                "无法读取所选的保存位置，请重新选择。",
+                "선택한 저장 위치를 읽을 수 없습니다. 다시 선택하십시오.",
+                "Couldn't read the selected save location. Choose it again."
+            ),
         )
     })?;
     tauri::async_runtime::spawn_blocking(move || fs::write(&target, text))
         .await
-        .map_err(|err| error(ApiError::INTERNAL, format!("保存配置时出错：{err}")))?
+        .map_err(|err| error(ApiError::INTERNAL, tr!("保存配置时出错：{err}", "설정을 저장하는 중 오류가 발생했습니다: {err}", "Error saving the configuration: {err}")))?
         .map_err(|err| {
             log::warn!("无法保存配置：{err}");
             error(
                 ApiError::INTERNAL,
-                "配置未能保存，请确认所选位置可以写入后重试。",
+                trs!("配置未能保存，请确认所选位置可以写入后重试。", "설정을 저장하지 못했습니다. 선택한 위치에 쓸 수 있는지 확인한 뒤 다시 시도하십시오.", "Couldn't save the configuration. Make sure the selected location is writable, then try again."),
             )
         })?;
     Ok(true)
@@ -212,11 +248,17 @@ async fn save<R: Runtime>(app: &AppHandle<R>, name: &str, text: String) -> Resul
 #[cfg(not(target_os = "android"))]
 async fn pick<R: Runtime>(app: &AppHandle<R>) -> Result<Option<String>, ApiError> {
     let (tx, rx) = tokio::sync::oneshot::channel();
-    crate::file_dialog(app, "导入配置")
-        .add_filter("Rummage 配置", &["json"])
-        .pick_file(move |path| {
-            let _ = tx.send(path);
-        });
+    crate::file_dialog(
+        app,
+        trs!("导入配置", "설정 가져오기", "Import configuration"),
+    )
+    .add_filter(
+        trs!("Rummage 配置", "Rummage 설정", "Rummage configuration"),
+        &["json"],
+    )
+    .pick_file(move |path| {
+        let _ = tx.send(path);
+    });
     let Some(file) = rx.await.ok().flatten() else {
         return Ok(None);
     };
@@ -224,12 +266,25 @@ async fn pick<R: Runtime>(app: &AppHandle<R>) -> Result<Option<String>, ApiError
         log::warn!("无法读取所选文件的路径：{err}");
         error(
             ApiError::BAD_REQUEST,
-            "无法读取所选文件的路径，请重新选择。",
+            trs!(
+                "无法读取所选文件的路径，请重新选择。",
+                "선택한 파일의 경로를 읽을 수 없습니다. 다시 선택하십시오.",
+                "Couldn't read the selected file's path. Choose it again."
+            ),
         )
     })?;
     tauri::async_runtime::spawn_blocking(move || read(&path))
         .await
-        .map_err(|err| error(ApiError::INTERNAL, format!("读取配置文件时出错：{err}")))?
+        .map_err(|err| {
+            error(
+                ApiError::INTERNAL,
+                tr!(
+                    "读取配置文件时出错：{err}",
+                    "설정 파일을 읽는 중 오류가 발생했습니다: {err}",
+                    "Error reading the configuration file: {err}"
+                ),
+            )
+        })?
         .map(Some)
 }
 
@@ -247,7 +302,11 @@ pub async fn import_config<R: Runtime>(app: AppHandle<R>) -> Result<Option<Previ
     if !crate::android::storage::files_granted(&app).await {
         return Err(error(
             ApiError::BAD_REQUEST,
-            "请先授予“所有文件访问”权限，再导入配置。",
+            trs!(
+                "请先授予“所有文件访问”权限，再导入配置。",
+                "‘모든 파일 액세스’ 권한을 먼저 허용한 뒤 설정을 가져오십시오.",
+                "Grant the \"All files access\" permission first, then import the configuration."
+            ),
         ));
     }
     let Some(text) = pick(&app).await? else {
@@ -279,7 +338,11 @@ pub async fn apply_config<R: Runtime>(app: AppHandle<R>) -> Result<Outcome, ApiE
     let Some(cfg) = pending else {
         return Err(error(
             ApiError::BAD_REQUEST,
-            "没有待导入的配置，请重新选择文件。",
+            trs!(
+                "没有待导入的配置，请重新选择文件。",
+                "가져올 설정이 없습니다. 파일을 다시 선택하십시오.",
+                "There is no configuration to import. Choose the file again."
+            ),
         ));
     };
     let mut warning = None;
@@ -319,7 +382,16 @@ pub async fn apply_config<R: Runtime>(app: AppHandle<R>) -> Result<Outcome, ApiE
         })
     })
     .await
-    .map_err(|err| error(ApiError::INTERNAL, format!("检查文件夹时出错：{err}")))?;
+    .map_err(|err| {
+        error(
+            ApiError::INTERNAL,
+            tr!(
+                "检查文件夹时出错：{err}",
+                "폴더를 확인하는 중 오류가 발생했습니다: {err}",
+                "Error checking folders: {err}"
+            ),
+        )
+    })?;
     for f in add {
         let body = Request::AddRoot {
             path: f.path.clone(),

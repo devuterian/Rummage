@@ -12,17 +12,18 @@ import ConfirmDialog from './ConfirmDialog'
 import { CloseIcon, ExternalLinkIcon } from './icons'
 import { HoverTip } from './Tip'
 import { BUTTON, PRIMARY_BUTTON } from './onboarding/styles'
+import { getLang, t } from '../lib/i18n'
 
 function formatReleaseDate(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
+  return date.toLocaleDateString(getLang() === 'zh' ? 'zh-CN' : getLang(), { year: 'numeric', month: '2-digit', day: '2-digit' })
 }
 
 /** 按 RELEASE.md 的格式显示更新说明：分类标题、条目与缩进的子条目 */
 function ReleaseBody({ body }: { body: string }) {
   const lines = parseReleaseBody(body)
-  if (!lines.length) return <p>暂无更新说明</p>
+  if (!lines.length) return <p>{t('暂无更新说明')}</p>
   return (
     <div className="space-y-1">
       {lines.map((line, idx) => {
@@ -39,6 +40,7 @@ function ReleaseBody({ body }: { body: string }) {
   )
 }
 
+/** 中文原文，显示时翻译 */
 const CLIENT_UPDATE_LABELS = {
   idle: '下载',
   downloading: '下载中',
@@ -61,7 +63,7 @@ function ClientUpdateButton({ version }: { version: string }) {
     void requestClientUpdateInstall(version)
   }
 
-  const label = status === 'downloading' && progress ? `下载中 ${formatUpdateProgress(progress)}` : CLIENT_UPDATE_LABELS[status]
+  const label = status === 'downloading' && progress ? t('下载中 {progress}', { progress: formatUpdateProgress(progress) }) : t(CLIENT_UPDATE_LABELS[status])
   return (
     <button
       type="button"
@@ -98,7 +100,7 @@ function UpdateModalContent() {
     try {
       await task()
     } catch (err) {
-      setError(errorMessage(err, '获取版本信息失败，请稍后再试。'))
+      setError(errorMessage(err, t('获取版本信息失败，请稍后再试。')))
     } finally {
       setLoading(false)
     }
@@ -131,20 +133,20 @@ function UpdateModalContent() {
   // 没有版本列表时正文已显示加载中或失败详情，标题下只给简短状态，不重复
   const status = !releases.length
     ? !loading && (error || checkError)
-      ? { label: '检查失败', text: 'text-red-600 dark:text-red-400', dot: 'bg-red-500 ring-red-500/20' }
-      : { label: '当前版本', text: 'text-gray-500 dark:text-gray-400', dot: 'bg-gray-300 ring-gray-300/25 dark:bg-gray-600 dark:ring-gray-600/30' }
+      ? { label: t('检查失败'), text: 'text-red-600 dark:text-red-400', dot: 'bg-red-500 ring-red-500/20' }
+      : { label: t('当前版本'), text: 'text-gray-500 dark:text-gray-400', dot: 'bg-gray-300 ring-gray-300/25 dark:bg-gray-600 dark:ring-gray-600/30' }
     : hasUpdate
-      ? { label: '有新版本可用', text: 'font-medium text-blue-600 dark:text-blue-400', dot: 'bg-blue-500 ring-blue-500/20' }
+      ? { label: t('有新版本可用'), text: 'font-medium text-blue-600 dark:text-blue-400', dot: 'bg-blue-500 ring-blue-500/20' }
       : checkError
-        ? { label: `检查失败：${checkError}`, text: 'text-red-600 dark:text-red-400', dot: 'bg-red-500 ring-red-500/20' }
-        : { label: '当前已是最新版本', text: 'text-gray-500 dark:text-gray-400', dot: 'bg-emerald-500 ring-emerald-500/20' }
+        ? { label: t('检查失败：{error}', { error: checkError }), text: 'text-red-600 dark:text-red-400', dot: 'bg-red-500 ring-red-500/20' }
+        : { label: t('当前已是最新版本'), text: 'text-gray-500 dark:text-gray-400', dot: 'bg-emerald-500 ring-emerald-500/20' }
   const pullText = loading
-    ? '正在加载'
+    ? t('正在加载')
     : !hasMore
-      ? '没有更早的版本了'
+      ? t('没有更早的版本了')
       : armed
-        ? '松开加载更早的版本'
-        : '继续上滑加载更早的版本'
+        ? t('松开加载更早的版本')
+        : t('继续上滑加载更早的版本')
   const progress = loading ? 0 : Math.min(pull / PULL_THRESHOLD, 1)
 
   return createPortal(
@@ -153,21 +155,21 @@ function UpdateModalContent() {
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="版本更新"
+        aria-label={t('版本更新')}
         className="relative z-10 flex h-[85vh] max-h-[min(720px,100%)] w-full max-w-2xl animate-modal-in flex-col overflow-hidden rounded-3xl border border-white/50 bg-white/95 shadow-2xl ring-1 ring-black/5 dark:border-white/[0.08] dark:bg-gray-900/95 dark:ring-white/10"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-start gap-3 border-b border-gray-100 px-5 py-4 dark:border-white/[0.08]">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3">
-              <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">版本更新</h3>
+              <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">{t('版本更新')}</h3>
               <button
                 type="button"
                 onClick={() => openExternal(latest?.url ?? RELEASES_PAGE_URL)}
                 className="flex items-center gap-1 text-xs text-gray-400 transition-colors hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400"
               >
                 <ExternalLinkIcon className="h-3.5 w-3.5" />
-                在 GitHub 打开
+                {t('在 GitHub 打开')}
               </button>
             </div>
             {/* 检查失败时列表可能来自过期缓存，不能断言已是最新；有新版本时仍以新版本信息优先 */}
@@ -175,7 +177,7 @@ function UpdateModalContent() {
               <span className={`h-1.5 w-1.5 shrink-0 rounded-full ring-[3px] ${status.dot}`} />
               <span className="min-w-0 truncate">
                 {status.label}
-                <HoverTip label={status.label.replace(/。$/, '')} wrap />
+                <HoverTip label={status.label.replace(/[。.]$/, '')} wrap />
               </span>
               <span data-selectable-text className="shrink-0 font-mono text-gray-400 dark:text-gray-500">
                 {hasUpdate ? `v${__APP_VERSION__} → ${latest?.tag}` : `v${__APP_VERSION__}`}
@@ -186,7 +188,7 @@ function UpdateModalContent() {
             type="button"
             onClick={onClose}
             className="-mr-1 shrink-0 rounded-full p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
-            aria-label="关闭"
+            aria-label={t('关闭')}
           >
             <CloseIcon className="h-5 w-5" />
           </button>
@@ -200,12 +202,12 @@ function UpdateModalContent() {
           >
             {releases.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                {loading ? '正在获取版本信息' : error ? (
+                {loading ? t('正在获取版本信息') : error ? (
                   <>
-                    <span data-selectable-text>获取版本信息失败：{error}</span>
-                    <button type="button" onClick={() => void run(() => checkForUpdates(MANUAL_CHECK_MIN_INTERVAL_MS))} className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300">重试</button>
+                    <span data-selectable-text>{t('获取版本信息失败：{error}', { error })}</span>
+                    <button type="button" onClick={() => void run(() => checkForUpdates(MANUAL_CHECK_MIN_INTERVAL_MS))} className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300">{t('重试')}</button>
                   </>
-                ) : '暂无已发布的版本'}
+                ) : t('暂无已发布的版本')}
               </div>
             ) : (
               <div className="space-y-4">
@@ -219,8 +221,8 @@ function UpdateModalContent() {
                     >
                       <div className="mb-3 flex flex-wrap items-center gap-2">
                         <h4 className="text-[15px] font-bold text-gray-800 dark:text-gray-100">{release.tag}</h4>
-                        {idx === 0 && cmp > 0 && <span className="text-xs font-medium text-blue-500 dark:text-blue-400">最新</span>}
-                        {cmp === 0 && <span className="text-xs text-gray-400 dark:text-gray-500">当前版本</span>}
+                        {idx === 0 && cmp > 0 && <span className="text-xs font-medium text-blue-500 dark:text-blue-400">{t('最新')}</span>}
+                        {cmp === 0 && <span className="text-xs text-gray-400 dark:text-gray-500">{t('当前版本')}</span>}
                         <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">{formatReleaseDate(release.publishedAt)}</span>
                       </div>
                       <div data-selectable-text className="text-sm leading-relaxed text-gray-700 dark:text-gray-200">
@@ -233,8 +235,8 @@ function UpdateModalContent() {
                 <div className={`flex items-center justify-center gap-2 pb-2 text-xs transition-colors ${armed && hasMore && !loading ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}>
                   {error && !loading ? (
                     <>
-                      <span data-selectable-text>加载失败：{error}</span>
-                      <button type="button" onClick={loadMore} className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300">重试</button>
+                      <span data-selectable-text>{t('加载失败：{error}', { error })}</span>
+                      <button type="button" onClick={loadMore} className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300">{t('重试')}</button>
                     </>
                   ) : (
                     <>
@@ -278,16 +280,16 @@ function UpdateModalContent() {
               }}
               className="whitespace-nowrap rounded-xl px-2 py-2 text-xs text-gray-500 transition hover:bg-black/[0.05] hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.06] dark:hover:text-gray-200 sm:px-3 sm:text-sm"
             >
-              忽略当前最新版本
+              {t('忽略当前最新版本')}
             </button>
           )}
           <div className="ml-auto flex items-center gap-2">
             <button type="button" onClick={onClose} className={BUTTON}>
-              关闭
+              {t('关闭')}
             </button>
             {hasUpdate && latest && (isTauri ? <ClientUpdateButton version={latest.version} /> : (
               <button type="button" onClick={() => openExternal(latest.url)} className={PRIMARY_BUTTON}>
-                前往 GitHub 下载
+                {t('前往 GitHub 下载')}
               </button>
             ))}
           </div>

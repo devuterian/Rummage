@@ -38,6 +38,8 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 use std::time::Duration;
 
+use rummage_proto::tr;
+
 pub use frame::{DeviceInfo, GpuInfo};
 pub use litert::{Accel, TIERS as LITERT_TIERS};
 pub use local::{Gpu, Limits, LocalBackend, WorkerSpec, list_devices};
@@ -151,31 +153,103 @@ impl Error {
     /// 显示给用户的整句（文件的索引状态、设备检测结果等，不只针对文件，所以只有缺模型、输入无法识别这类确实针对文件的才写“此文件”）。`Display` 带函数名、返回码等细节，只写进日志
     pub fn user_message(&self) -> String {
         match self {
-            Error::ModelIo { .. } | Error::ModelSize { .. } => {
-                "模型文件无法读取或已损坏，请重新下载模型。".into()
-            }
-            Error::NoMmproj => "尚未下载图片与音视频模型，无法识别此文件的内容。".into(),
-            Error::InvalidInput(_) => "此文件的内容无法识别。".into(),
-            Error::QueryTooLong(_) => "搜索内容过长，请缩短后再试。".into(),
-            Error::TooLong(_) => "内容过长，无法识别。".into(),
-            Error::BadVector(_) => "识别结果异常，无法使用。".into(),
-            Error::Spawn(_) | Error::InitFailed(_) | Error::GpuMismatch(_) => {
-                "内容识别无法启动。".into()
-            }
-            Error::GpuNotFound(_) => "找不到所选的显卡，它可能已拔出、被停用或驱动未加载。".into(),
-            Error::InitTimeout(d) => {
-                format!("内容识别在 {} 秒内没有启动完成，已停止。", d.as_secs_f64())
-            }
-            Error::InferTimeout(d) => format!("识别内容超过 {} 秒，已停止。", d.as_secs_f64()),
-            Error::Crashed(_) => "内容识别意外中止。".into(),
-            Error::DeviceLost(_) => "显卡出现错误，本次运行不再使用它。".into(),
-            Error::Inference(msg) if msg == OUT_OF_MEMORY => msg.clone(),
-            Error::Inference(_) | Error::Protocol(_) => "识别内容时出错。".into(),
-            Error::Unavailable(_) => "内容识别不可用。".into(),
-            Error::OutOfMemory(_) => "显存或内存不足，无法继续使用这块显卡。".into(),
-            Error::Stuck(_) => "内容识别进程停止响应且无法结束，建议重新启动电脑。".into(),
-            Error::Stopped => "内容识别已停止。".into(),
-            Error::Golden(_) => "设备检测所需的样本文件无效，请重新安装 Rummage。".into(),
+            Error::ModelIo { .. } | Error::ModelSize { .. } => tr!(
+                "模型文件无法读取或已损坏，请重新下载模型。",
+                "모델 파일을 읽을 수 없거나 손상되었습니다. 모델을 다시 다운로드하십시오.",
+                "The model file can't be read or is corrupted. Download the model again."
+            ),
+            Error::NoMmproj => tr!(
+                "尚未下载图片与音视频模型，无法识别此文件的内容。",
+                "이미지·오디오·동영상 모델을 아직 다운로드하지 않아 이 파일의 내용을 인식할 수 없습니다.",
+                "The image, audio and video model hasn't been downloaded, so this file's content can't be recognized."
+            ),
+            Error::InvalidInput(_) => tr!(
+                "此文件的内容无法识别。",
+                "이 파일의 내용을 인식할 수 없습니다.",
+                "This file's content can't be recognized."
+            ),
+            Error::QueryTooLong(_) => tr!(
+                "搜索内容过长，请缩短后再试。",
+                "검색어가 너무 깁니다. 줄인 뒤 다시 시도하십시오.",
+                "The search is too long. Shorten it and try again."
+            ),
+            Error::TooLong(_) => tr!(
+                "内容过长，无法识别。",
+                "내용이 너무 길어 인식할 수 없습니다.",
+                "The content is too long to recognize."
+            ),
+            Error::BadVector(_) => tr!(
+                "识别结果异常，无法使用。",
+                "인식 결과가 비정상이라 사용할 수 없습니다.",
+                "The recognition result is invalid and can't be used."
+            ),
+            Error::Spawn(_) | Error::InitFailed(_) | Error::GpuMismatch(_) => tr!(
+                "内容识别无法启动。",
+                "내용 인식을 시작할 수 없습니다.",
+                "Content recognition can't start."
+            ),
+            Error::GpuNotFound(_) => tr!(
+                "找不到所选的显卡，它可能已拔出、被停用或驱动未加载。",
+                "선택한 그래픽 카드(GPU)를 찾을 수 없습니다. 분리되었거나 사용 중지되었거나 드라이버가 로드되지 않았을 수 있습니다.",
+                "The selected GPU can't be found. It may have been unplugged or disabled, or its driver isn't loaded."
+            ),
+            Error::InitTimeout(d) => tr!(
+                "内容识别在 {} 秒内没有启动完成，已停止。",
+                "내용 인식이 {}초 안에 시작되지 않아 중지했습니다.",
+                "Content recognition didn't start within {} seconds and was stopped.",
+                d.as_secs_f64()
+            ),
+            Error::InferTimeout(d) => tr!(
+                "识别内容超过 {} 秒，已停止。",
+                "내용 인식이 {}초를 넘어 중지했습니다.",
+                "Recognizing the content took longer than {} seconds and was stopped.",
+                d.as_secs_f64()
+            ),
+            Error::Crashed(_) => tr!(
+                "内容识别意外中止。",
+                "내용 인식이 예기치 않게 중단되었습니다.",
+                "Content recognition stopped unexpectedly."
+            ),
+            Error::DeviceLost(_) => tr!(
+                "显卡出现错误，本次运行不再使用它。",
+                "그래픽 카드(GPU)에 오류가 생겨 이번 실행에서는 더 이상 사용하지 않습니다.",
+                "The GPU ran into an error and won't be used for the rest of this session."
+            ),
+            Error::Inference(msg) if msg == OUT_OF_MEMORY => tr!(
+                "显存或内存不足，无法处理此文件。可以在「设置 → 索引」中降低“图片识别精度”，或在「设置 → 高级」中调高“内容识别进程内存上限（GB）”。",
+                "GPU 메모리나 메모리가 부족해 이 파일을 처리할 수 없습니다. ‘설정 → 색인’에서 ‘이미지 인식 정밀도’를 낮추거나, ‘설정 → 고급’에서 ‘내용 인식 프로세스 메모리 상한(GB)’을 높이십시오.",
+                "Not enough GPU memory or RAM to process this file. Lower “Image recognition precision” in Settings → Index, or raise “Content recognition process memory limit (GB)” in Settings → Advanced."
+            ),
+            Error::Inference(_) | Error::Protocol(_) => tr!(
+                "识别内容时出错。",
+                "내용을 인식하는 중 오류가 발생했습니다.",
+                "An error occurred while recognizing the content."
+            ),
+            Error::Unavailable(_) => tr!(
+                "内容识别不可用。",
+                "내용 인식을 사용할 수 없습니다.",
+                "Content recognition is unavailable."
+            ),
+            Error::OutOfMemory(_) => tr!(
+                "显存或内存不足，无法继续使用这块显卡。",
+                "GPU 메모리나 메모리가 부족해 이 그래픽 카드(GPU)를 더 이상 사용할 수 없습니다.",
+                "Not enough GPU memory or RAM to keep using this GPU."
+            ),
+            Error::Stuck(_) => tr!(
+                "内容识别进程停止响应且无法结束，建议重新启动电脑。",
+                "내용 인식 프로세스가 응답하지 않고 종료되지도 않습니다. 컴퓨터를 다시 시작하는 것이 좋습니다.",
+                "The content recognition process stopped responding and can't be ended. Restarting the computer is recommended."
+            ),
+            Error::Stopped => tr!(
+                "内容识别已停止。",
+                "내용 인식이 중지되었습니다.",
+                "Content recognition has stopped."
+            ),
+            Error::Golden(_) => tr!(
+                "设备检测所需的样本文件无效，请重新安装 Rummage。",
+                "기기 검사에 필요한 샘플 파일이 올바르지 않습니다. Rummage를 다시 설치하십시오.",
+                "The sample files needed for the device check are invalid. Reinstall Rummage."
+            ),
         }
     }
 }

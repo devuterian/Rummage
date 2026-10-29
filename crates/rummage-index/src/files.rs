@@ -128,7 +128,9 @@ impl Db {
                     Ok(JobRow {
                         stage: row.get(0)?,
                         attempts: row.get(1)?,
-                        last_error: row.get(2)?,
+                        last_error: row
+                            .get::<_, Option<String>>(2)?
+                            .map(crate::jobs::shown_reason),
                     })
                 },
             )

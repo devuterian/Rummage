@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useEscape } from '../hooks/useEscape'
+import { t } from '../lib/i18n'
 
 /**
  * 「」中的内容（如路径）连同括号加粗，`**…**` 中的内容去掉星号加粗。
@@ -66,7 +67,7 @@ export default function ConfirmDialog({ title, message, children, confirmText, d
               onClick={onCancel}
               className="flex-1 rounded-xl border border-transparent bg-black/[0.04] py-2 text-sm text-gray-600 transition hover:bg-black/[0.07] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white/[0.06] dark:text-gray-400 dark:hover:bg-white/[0.1]"
             >
-              取消
+              {t('取消')}
             </button>
           )}
           {extra && (

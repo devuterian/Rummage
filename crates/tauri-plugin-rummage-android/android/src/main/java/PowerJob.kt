@@ -1,4 +1,4 @@
-package com.cooksleep.rummage.storage
+package com.marierie.rummage.storage
 
 import android.app.Notification
 import android.app.NotificationManager
@@ -72,11 +72,11 @@ class PowerJob : JobService() {
     /** 请用户打开应用继续 */
     private fun askToOpen(ctx: Context) {
       val nm = ctx.getSystemService(NotificationManager::class.java) ?: return
-      IndexService.channels(nm)
+      IndexService.channels(ctx, nm)
       val n = Notification.Builder(ctx, IndexService.NOTICE_CHANNEL)
         .setSmallIcon(R.drawable.rummage_notification)
-        .setContentTitle("已接上电源")
-        .setContentText("打开 Rummage 即可继续建立索引")
+        .setContentTitle(Lang.tr(ctx, "已接上电源", "전원 연결됨", "Charger connected"))
+        .setContentText(Lang.tr(ctx, "打开 Rummage 即可继续建立索引", "Rummage를 열면 색인을 이어서 진행합니다", "Open Rummage to continue indexing"))
         .setContentIntent(IndexService.openApp(ctx))
         .setAutoCancel(true)
         .build()

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import type { ProxySetting, SetupStatus } from '../../types'
 import { errorMessage } from '../../lib/errors'
+import { t } from '../../lib/i18n'
 import { DownloadIcon } from '../icons'
 import { showToast } from '../Toast'
 import { isAndroid } from '../../lib/platform'
@@ -43,7 +44,7 @@ export default function ModelStep({ status, mmproj, onProxy }: { status: SetupSt
       () => true,
       (err) => {
         console.warn(`${cmd} 失败：`, err)
-        showToast(errorMessage(err, '操作失败，请重试。'), 'error')
+        showToast(errorMessage(err, t('操作失败，请重试。')), 'error')
         return false
       },
     )
@@ -80,8 +81,8 @@ export default function ModelStep({ status, mmproj, onProxy }: { status: SetupSt
 
   return (
     <div>
-      <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">下载模型</h2>
-      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">识别文件内容需要本地模型，下载一次即可，之后完全离线使用。</p>
+      <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">{t('下载模型')}</h2>
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('识别文件内容需要本地模型，下载一次即可，之后完全离线使用。')}</p>
 
       <div className={`mt-4 ${CARD}`}>
         {rows.map((m) => (
@@ -98,7 +99,7 @@ export default function ModelStep({ status, mmproj, onProxy }: { status: SetupSt
           ) : (
             task.kind !== 'delete' && (
               <button type="button" className={`flex-shrink-0 ${BUTTON}`} onClick={() => call('cancel_model_task')}>
-                取消
+                {t('取消')}
               </button>
             )
           )}
@@ -120,7 +121,7 @@ export default function ModelStep({ status, mmproj, onProxy }: { status: SetupSt
       {!running && !starting && !verifyDone && unverified && (
         <div className="mt-3">
           <button type="button" className={BUTTON} onClick={verify}>
-            重新校验
+            {t('重新校验')}
           </button>
         </div>
       )}
@@ -134,7 +135,7 @@ export default function ModelStep({ status, mmproj, onProxy }: { status: SetupSt
             <div className="flex justify-end pt-1">
               <button type="button" className={`inline-flex items-center gap-1.5 ${PRIMARY_BUTTON}`} disabled={running || picking} onClick={download}>
                 <DownloadIcon className="h-4 w-4" />
-                {files.some((f) => f.verified === false) ? '重新下载' : '开始下载'}
+                {files.some((f) => f.verified === false) ? t('重新下载') : t('开始下载')}
               </button>
             </div>
           )}

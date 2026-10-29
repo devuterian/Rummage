@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { isAndroid, isTauri, setBeforeClose } from '../lib/platform'
 import { readLocal, writeLocal } from '../lib/storage'
 import ConfirmDialog from './ConfirmDialog'
+import { t } from '../lib/i18n'
 
 /** 已提示过“仍在后台运行”的本地存储键 */
 const SHOWN_KEY = 'rummage.trayHintShown'
@@ -41,9 +42,9 @@ export default function TrayHint() {
   }
   return (
     <ConfirmDialog
-      title="Rummage 仍在后台运行"
-      message={'关闭窗口后，Rummage 会在后台继续建立索引。\n\n可从任务栏通知区域的托盘图标重新打开或退出。'}
-      confirmText="知道了"
+      title={t('Rummage 仍在后台运行')}
+      message={t('关闭窗口后，Rummage 会在后台继续建立索引。\n\n可从任务栏通知区域的托盘图标重新打开或退出。')}
+      confirmText={t('知道了')}
       hideCancel
       onConfirm={close}
       onCancel={close}

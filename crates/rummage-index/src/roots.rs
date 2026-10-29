@@ -23,21 +23,53 @@ use crate::scan::{exclude_glob, slashes, wants_job};
 pub enum RootError {
     #[error(transparent)]
     Fs(#[from] FsError),
-    #[error("这个路径不是文件夹。")]
+    #[error("{}", rummage_proto::trs!("这个路径不是文件夹。", "이 경로는 폴더가 아닙니다.", "This path isn't a folder."))]
     NotDir,
-    #[error("该文件夹是网盘的按需下载文件夹，不支持索引。")]
+    #[error("{}", rummage_proto::trs!(
+        "该文件夹是网盘的按需下载文件夹，不支持索引。",
+        "이 폴더는 클라우드 저장소의 온라인 전용 폴더라 색인할 수 없습니다.",
+        "This folder is an online-only cloud storage folder and can't be indexed."
+    ))]
     CloudFolder,
-    #[error("该文件夹位于 Rummage 的数据目录之内，不能添加。")]
+    #[error("{}", rummage_proto::trs!(
+        "该文件夹位于 Rummage 的数据目录之内，不能添加。",
+        "이 폴더는 Rummage 데이터 폴더 안에 있어 추가할 수 없습니다.",
+        "This folder is inside the Rummage data folder and can't be added."
+    ))]
     InDataDir,
-    #[error("该文件夹已包含在已添加的 \"{0}\" 中。")]
+    #[error("{}", rummage_proto::tr!(
+        "该文件夹已包含在已添加的 \"{}\" 中。",
+        "이 폴더는 이미 추가한 \"{}\" 안에 있습니다.",
+        "This folder is already inside \"{}\", which has been added.",
+        .0
+    ))]
     Inside(String),
-    #[error("该文件夹包含已添加的 \"{0}\"，请先移除它。")]
+    #[error("{}", rummage_proto::tr!(
+        "该文件夹包含已添加的 \"{}\"，请先移除它。",
+        "이 폴더 안에 이미 추가한 \"{}\"가 있습니다. 먼저 그 폴더를 제거하십시오.",
+        "This folder contains \"{}\", which has already been added. Remove it first.",
+        .0
+    ))]
     Contains(String),
-    #[error("找不到该文件夹，它可能已被移除。")]
+    #[error("{}", rummage_proto::trs!(
+        "找不到该文件夹，它可能已被移除。",
+        "폴더를 찾을 수 없습니다. 제거되었을 수 있습니다.",
+        "The folder can't be found. It may have been removed."
+    ))]
     NotFound,
-    #[error("排除规则 \"{0}\" 的写法不正确，请检查方括号、花括号是否成对。")]
+    #[error("{}", rummage_proto::tr!(
+        "排除规则 \"{}\" 的写法不正确，请检查方括号、花括号是否成对。",
+        "제외 규칙 \"{}\"의 형식이 올바르지 않습니다. 대괄호와 중괄호가 짝이 맞는지 확인하십시오.",
+        "The exclude rule \"{}\" is invalid. Check that square and curly brackets are paired.",
+        .0
+    ))]
     BadExclude(String),
-    #[error("排除规则 \"{0}\" 是这个文件夹以外的路径，请写成这个文件夹中的相对路径。")]
+    #[error("{}", rummage_proto::tr!(
+        "排除规则 \"{}\" 是这个文件夹以外的路径，请写成这个文件夹中的相对路径。",
+        "제외 규칙 \"{}\"는 이 폴더 밖의 경로입니다. 이 폴더 안의 상대 경로로 쓰십시오.",
+        "The exclude rule \"{}\" points outside this folder. Write it as a path relative to this folder.",
+        .0
+    ))]
     AbsoluteExclude(String),
     #[error(transparent)]
     Db(#[from] DbError),

@@ -17,6 +17,7 @@ use std::time::Instant;
 use rummage_embed::{Error as EmbedError, Input, Priority};
 use rummage_index::{NewSegment, Outcome, Space};
 use rummage_media::video;
+use rummage_proto::tr;
 
 use super::docmedia::Media;
 use super::engine::backend_failed;
@@ -245,9 +246,11 @@ fn embed_items(
                 Ok(e) if e.space.0 == sp.id => e.vector,
                 Ok(e) => {
                     log::error!("推理结果的向量空间 {} 与预期的 {} 不符。", e.space, sp.id);
-                    return Err(Fail::Error(
-                        "识别结果与当前设置不符，无法保存。".to_string(),
-                    ));
+                    return Err(Fail::Error(tr!(
+                        "识别结果与当前设置不符，无法保存。",
+                        "인식 결과가 현재 설정과 맞지 않아 저장할 수 없습니다.",
+                        "The recognition result doesn't match the current settings, so it can't be saved."
+                    )));
                 }
                 Err(err) => {
                     p.shared.engine_failed(p.engine, &err, start);
@@ -260,7 +263,11 @@ fn embed_items(
                     log::warn!("识别失败：{err}");
                     // 失败原因的主语为此文件（`prep::reason`）；`user_message` 以显卡为主语，留给设备提示用
                     let msg = match err {
-                        EmbedError::OutOfMemory(_) => "识别此文件时显存或内存不足。".to_string(),
+                        EmbedError::OutOfMemory(_) => tr!(
+                            "识别此文件时显存或内存不足。",
+                            "이 파일을 인식하는 중 GPU 메모리나 시스템 메모리가 부족했습니다.",
+                            "Ran out of GPU or system memory while recognizing this file."
+                        ),
                         _ => err.user_message(),
                     };
                     return Err(if retry {

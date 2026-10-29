@@ -8,6 +8,7 @@ license.workspace = true
 # WIC 不可用或解码失败时的回退，也是非 Windows 平台的解码器；只开需要的格式
 image = { version = "=0.25.10", default-features = false, features = ["bmp", "gif", "jpeg", "png", "tiff", "webp"] }
 log = "=0.4.34"
+rummage-proto = { path = "../rummage-proto" }
 # 解析 ffprobe 的 JSON 输出、写音频元数据，MIT OR Apache-2.0
 serde_json = "=1.0.154"
 thiserror = "=2.0.21"

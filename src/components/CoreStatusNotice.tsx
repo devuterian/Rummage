@@ -5,6 +5,7 @@ import { errorMessage } from '../lib/errors'
 import { SpinnerIcon } from './icons'
 import { BUTTON } from './onboarding/styles'
 import { showToast } from './Toast'
+import { t } from '../lib/i18n'
 
 interface Props {
   status: CoreStatus
@@ -26,7 +27,7 @@ export default function CoreStatusNotice({ status, className = '' }: Props) {
     invoke('restart_core')
       .catch((err) => {
         console.warn('无法重新启动后台服务：', err)
-        showToast(errorMessage(err, '无法启动后台服务，请重新启动 Rummage。'), 'error')
+        showToast(errorMessage(err, t('无法启动后台服务，请重新启动 Rummage。')), 'error')
       })
       .finally(() => setBusy(false))
   }
@@ -35,11 +36,11 @@ export default function CoreStatusNotice({ status, className = '' }: Props) {
     return (
       <div className={`flex flex-col items-center justify-center gap-3 text-center text-sm text-gray-500 dark:text-gray-400 ${className}`}>
         <div data-selectable-text className="space-y-1">
-          <p className="font-medium text-gray-700 dark:text-gray-200">后台服务无法启动</p>
-          <p className="text-xs">重试仍然失败时，请附上数据目录中“logs”文件夹里的日志反馈问题。</p>
+          <p className="font-medium text-gray-700 dark:text-gray-200">{t('后台服务无法启动')}</p>
+          <p className="text-xs">{t('重试仍然失败时，请附上数据目录中“logs”文件夹里的日志反馈问题。')}</p>
         </div>
         <button type="button" className={BUTTON} disabled={busy} onClick={retry}>
-          重试
+          {t('重试')}
         </button>
       </div>
     )
@@ -47,7 +48,7 @@ export default function CoreStatusNotice({ status, className = '' }: Props) {
   return (
     <div className={`flex items-center justify-center gap-2 text-center text-sm text-gray-500 dark:text-gray-400 ${className}`}>
       <SpinnerIcon className="h-4 w-4 flex-shrink-0 animate-spin text-blue-500" />
-      {status === 'restarting' ? '后台服务正在重新启动，请稍候' : '正在启动后台服务，请稍候'}
+      {status === 'restarting' ? t('后台服务正在重新启动，请稍候') : t('正在启动后台服务，请稍候')}
     </div>
   )
 }

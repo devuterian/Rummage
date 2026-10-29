@@ -20,21 +20,21 @@
 
     <application>
         <service
-            android:name="com.cooksleep.rummage.storage.IndexService"
+            android:name="com.marierie.rummage.storage.IndexService"
             android:exported="false"
             android:foregroundServiceType="mediaProcessing|dataSync" />
         <!-- 因未接电源暂停建立索引时，接上电源后唤醒应用（PowerJob） -->
         <service
-            android:name="com.cooksleep.rummage.storage.PowerJob"
+            android:name="com.marierie.rummage.storage.PowerJob"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
         <!-- GPU、NPU 推理在单独的进程中，出错或超时时可以强行结束；换设备时新旧推理进程各在一个（EmbedService） -->
         <service
-            android:name="com.cooksleep.rummage.storage.EmbedService"
+            android:name="com.marierie.rummage.storage.EmbedService"
             android:exported="false"
             android:process=":embed" />
         <service
-            android:name="com.cooksleep.rummage.storage.EmbedService2"
+            android:name="com.marierie.rummage.storage.EmbedService2"
             android:exported="false"
             android:process=":embed2" />
         <!--

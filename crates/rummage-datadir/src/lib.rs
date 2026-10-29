@@ -20,6 +20,8 @@ use std::fs;
 use std::io::{self, ErrorKind, Write};
 use std::path::{Component, Path, PathBuf, Prefix};
 
+use rummage_proto::{tr, trs};
+
 const POINTER: &str = "data-dir";
 /// 已确认、待下次启动迁移：原目录、新目录、发起更改的进程号、迁移完成后要写入的指向文件内容
 /// （新目录是默认位置时为空行，表示删除指向文件），各占一行
@@ -42,18 +44,90 @@ const NOT_EMPTY: &str = "请选择一个空文件夹。";
 const NOT_DIR: &str = "请选择一个文件夹。";
 const INDEXED: &str = "不能选在已被索引的文件夹之内。";
 
+/// 上面的原因按界面语言给出；判断时仍以中文常量区分
+fn localized(reason: &'static str) -> &'static str {
+    match reason {
+        NETWORK => trs!(
+            "不支持网络位置。",
+            "네트워크 위치는 사용할 수 없습니다.",
+            "Network locations aren't supported."
+        ),
+        ROOT => trs!(
+            "不能使用磁盘根目录。",
+            "드라이브 루트는 사용할 수 없습니다.",
+            "The root of a drive can't be used."
+        ),
+        PROTECTED => trs!(
+            "不能使用用户文件夹或 AppData。",
+            "사용자 폴더나 AppData는 사용할 수 없습니다.",
+            "The user folder or AppData can't be used."
+        ),
+        KNOWN => trs!(
+            "不能直接使用下载、图片、文档等系统文件夹，可以在里面新建一个。",
+            "다운로드, 사진, 문서 같은 시스템 폴더는 바로 쓸 수 없습니다. 그 안에 새 폴더를 만들어 사용하십시오.",
+            "System folders like Downloads, Pictures and Documents can't be used directly. Create a new folder inside one instead."
+        ),
+        SYSTEM => trs!(
+            "不能使用 Windows、Program Files 等系统位置。",
+            "Windows, Program Files 같은 시스템 위치는 사용할 수 없습니다.",
+            "System locations like Windows or Program Files can't be used."
+        ),
+        CLOUD => trs!(
+            "不能使用 OneDrive 等云同步文件夹。",
+            "OneDrive 같은 클라우드 동기화 폴더는 사용할 수 없습니다.",
+            "Cloud-synced folders like OneDrive can't be used."
+        ),
+        IN_INSTALL => trs!(
+            "不能使用安装目录，卸载时可能被删除。",
+            "설치 폴더는 앱을 제거할 때 함께 삭제될 수 있어 사용할 수 없습니다.",
+            "The installation folder can't be used; it may be deleted when uninstalling."
+        ),
+        SAME => trs!(
+            "与当前数据目录相同。",
+            "현재 데이터 폴더와 같습니다.",
+            "This is already the current data folder."
+        ),
+        NESTED => trs!(
+            "不能与当前数据目录互相包含。",
+            "현재 데이터 폴더 안에 있거나 현재 데이터 폴더를 포함하는 폴더는 사용할 수 없습니다.",
+            "The folder can't be inside or contain the current data folder."
+        ),
+        NOT_EMPTY => trs!(
+            "请选择一个空文件夹。",
+            "빈 폴더를 선택하십시오.",
+            "Choose an empty folder."
+        ),
+        NOT_DIR => trs!(
+            "请选择一个文件夹。",
+            "폴더를 선택하십시오.",
+            "Choose a folder."
+        ),
+        INDEXED => trs!(
+            "不能选在已被索引的文件夹之内。",
+            "색인 폴더 안은 선택할 수 없습니다.",
+            "The folder can't be inside an indexed folder."
+        ),
+        other => other,
+    }
+}
+
 pub use migrate::dir_stats;
 pub use platform::{can_choose, choose};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("无法确定程序所在目录：{0}")]
+    #[error("{}", tr!("无法确定程序所在目录：{}", "프로그램 폴더를 확인할 수 없습니다: {}", "Couldn't determine the program folder: {}", .0))]
     Base(#[source] io::Error),
     /// 指向的目录不存在或无法访问，例如存储设备未连接
-    #[error("找不到数据目录 \"{}\"，存储设备可能未连接。", shown(.0))]
+    #[error("{}", tr!(
+        "找不到数据目录 \"{}\"，存储设备可能未连接。",
+        "데이터 폴더 \"{}\"를 찾을 수 없습니다. 저장 장치가 연결되어 있는지 확인하십시오.",
+        "Couldn't find the data folder \"{}\". The storage device may be disconnected.",
+        shown(.0)
+    ))]
     Missing(PathBuf),
     /// 指向文件损坏，或指向的位置不能用作数据目录；label、path 说明涉及的文件或目录
-    #[error("{reason}（{label}：{}）", shown(path))]
+    #[error("{}", tr!("{}（{}：{}）", "{} ({}: {})", "{} ({}: {})", reason, label, shown(path)))]
     Invalid {
         reason: String,
         label: &'static str,
@@ -62,13 +136,26 @@ pub enum Error {
     /// 所选位置不能作为新数据目录，内容为可直接展示给用户的原因
     #[error("{0}")]
     Rejected(String),
-    #[error("无法开始更改数据目录，请确认 Rummage 的安装目录可以写入后重试。（{0}）")]
+    #[error("{}", tr!(
+        "无法开始更改数据目录，请确认 Rummage 的安装目录可以写入后重试。（{}）",
+        "데이터 폴더 변경을 시작할 수 없습니다. Rummage 설치 폴더에 쓸 수 있는지 확인한 뒤 다시 시도하십시오. ({})",
+        "Couldn't start changing the data folder. Make sure the Rummage installation folder is writable, then try again. ({})",
+        .0
+    ))]
     Pending(#[source] io::Error),
     /// 同时启动的另一个实例正在迁移数据目录，本实例应直接退出
-    #[error("另一个 Rummage 正在更改数据目录，请等它完成。")]
+    #[error("{}", trs!(
+        "另一个 Rummage 正在更改数据目录，请等它完成。",
+        "다른 Rummage가 데이터 폴더를 변경하는 중입니다. 끝날 때까지 기다리십시오.",
+        "Another Rummage is changing the data folder. Wait for it to finish."
+    ))]
     Busy,
     /// 有待完成或中断的数据目录更改（`locate`），要由界面在启动时完成
-    #[error("数据目录正在更改，请先打开 Rummage 完成更改。")]
+    #[error("{}", trs!(
+        "数据目录正在更改，请先打开 Rummage 完成更改。",
+        "데이터 폴더를 변경하는 중입니다. 먼저 Rummage를 열어 변경을 마치십시오.",
+        "The data folder is being changed. Open Rummage first to finish the change."
+    ))]
     Changing,
 }
 
@@ -376,26 +463,30 @@ fn check_target(
 ) -> Result<(), String> {
     let real = normalize(to);
     if !to.is_absolute() || real.components().any(|c| c == Component::ParentDir) {
-        return Err(NOT_DIR.into());
+        return Err(localized(NOT_DIR).into());
     }
     if is_network(to) {
-        return Err(NETWORK.into());
+        return Err(localized(NETWORK).into());
     }
     let base = normalize(base);
     if let Some(reason) = target_block(&real, &normalize(current), &base, dirs) {
-        return Err(reason.into());
+        return Err(localized(reason).into());
     }
     if indexed.iter().any(|dir| real.starts_with(normalize(dir))) {
-        return Err(INDEXED.into());
+        return Err(localized(INDEXED).into());
     }
     if to.exists() && !to.is_dir() {
-        return Err(NOT_DIR.into());
+        return Err(localized(NOT_DIR).into());
     }
     match fs::read_dir(to).map(|mut entries| entries.next().is_none()) {
         Ok(true) => Ok(()),
-        Ok(false) => Err(NOT_EMPTY.into()),
+        Ok(false) => Err(localized(NOT_EMPTY).into()),
         Err(err) if err.kind() == ErrorKind::NotFound => Ok(()),
-        Err(err) => Err(format!("无法读取所选文件夹：{err}")),
+        Err(err) => Err(tr!(
+            "无法读取所选文件夹：{err}",
+            "선택한 폴더를 읽을 수 없습니다: {err}",
+            "Couldn't read the selected folder: {err}"
+        )),
     }
 }
 
@@ -412,8 +503,12 @@ fn resolve(base: &Path, dirs: &SystemDirs) -> Result<PathBuf, Error> {
         Ok(Some(line)) => line,
         Err(err) => {
             return Err(invalid(
-                format!("无法读取数据目录设置：{err}"),
-                "设置文件",
+                tr!(
+                    "无法读取数据目录设置：{err}",
+                    "데이터 폴더 설정을 읽을 수 없습니다: {err}",
+                    "Couldn't read the data folder setting: {err}"
+                ),
+                trs!("设置文件", "설정 파일", "Settings file"),
                 &pointer,
             ));
         }
@@ -421,15 +516,23 @@ fn resolve(base: &Path, dirs: &SystemDirs) -> Result<PathBuf, Error> {
     let dir = parse_pointer(base, &line);
     if !dir.is_absolute() {
         return Err(invalid(
-            "数据目录设置中记录的不是有效的文件夹路径。".into(),
-            "设置文件",
+            tr!(
+                "数据目录设置中记录的不是有效的文件夹路径。",
+                "데이터 폴더 설정에 저장된 값이 올바른 폴더 경로가 아닙니다.",
+                "The data folder setting doesn't contain a valid folder path."
+            ),
+            trs!("设置文件", "설정 파일", "Settings file"),
             &pointer,
         ));
     }
     if is_network(&dir) {
         return Err(invalid(
-            "数据目录位于网络位置，不支持。".into(),
-            "数据目录",
+            tr!(
+                "数据目录位于网络位置，不支持。",
+                "데이터 폴더가 네트워크 위치에 있습니다. 네트워크 위치는 지원하지 않습니다.",
+                "The data folder is on a network location, which isn't supported."
+            ),
+            trs!("数据目录", "데이터 폴더", "Data folder"),
             &dir,
         ));
     }
@@ -437,9 +540,14 @@ fn resolve(base: &Path, dirs: &SystemDirs) -> Result<PathBuf, Error> {
         return Err(Error::Missing(dir));
     }
     if let Some(reason) = location_block(&normalize(&dir), &normalize(base), dirs) {
+        let reason = localized(reason);
         return Err(invalid(
-            format!("数据目录位于不支持的位置。{reason}"),
-            "数据目录",
+            tr!(
+                "数据目录位于不支持的位置。{reason}",
+                "데이터 폴더가 지원하지 않는 위치에 있습니다. {reason}",
+                "The data folder is in an unsupported location. {reason}"
+            ),
+            trs!("数据目录", "데이터 폴더", "Data folder"),
             &dir,
         ));
     }
@@ -463,8 +571,14 @@ fn startup(
         _ => PathBuf::new(),
     };
     let rows: Vec<(&str, &Path)> = [
-        ("原数据目录", recorded.as_path()),
-        ("默认目录", default.as_path()),
+        (
+            trs!("原数据目录", "이전 데이터 폴더", "Previous data folder"),
+            recorded.as_path(),
+        ),
+        (
+            trs!("默认目录", "기본 폴더", "Default folder"),
+            default.as_path(),
+        ),
     ]
     .into_iter()
     .filter(|(_, path)| !path.as_os_str().is_empty())
@@ -477,8 +591,16 @@ fn startup(
             let _ = fs::remove_file(base.join(POINTER));
             notices.push(notice(
                 NoticeKind::Warning,
-                "已改用默认数据目录",
-                "原目录中的索引和模型不会转移，需要重新设置文件夹并下载模型。",
+                trs!(
+                    "已改用默认数据目录",
+                    "기본 데이터 폴더로 전환됨",
+                    "Switched to the default data folder"
+                ),
+                trs!(
+                    "原目录中的索引和模型不会转移，需要重新设置文件夹并下载模型。",
+                    "이전 폴더의 색인과 모델은 옮겨지지 않습니다. 폴더를 다시 설정하고 모델을 다시 다운로드해야 합니다.",
+                    "The index and models in the previous folder aren't moved. Set up your folders and download the models again."
+                ),
                 &rows,
                 vec![],
             ));
@@ -487,12 +609,22 @@ fn startup(
         (Err(err), Some(Fallback::Skip)) => {
             notices.push(notice(
                 NoticeKind::Warning,
-                "本次使用默认数据目录",
+                trs!(
+                    "本次使用默认数据目录",
+                    "이번에는 기본 데이터 폴더 사용",
+                    "Using the default data folder for now"
+                ),
                 match err {
-                    Error::Missing(_) => {
-                        "找不到原数据目录，本次使用默认目录。\n\n重新连接存储设备后，重新启动 Rummage 即可恢复。"
-                    }
-                    _ => "原数据目录设置无效，本次使用默认目录。",
+                    Error::Missing(_) => trs!(
+                        "找不到原数据目录，本次使用默认目录。\n\n重新连接存储设备后，重新启动 Rummage 即可恢复。",
+                        "이전 데이터 폴더를 찾을 수 없어 이번에는 기본 폴더를 사용합니다.\n\n저장 장치를 다시 연결한 뒤 Rummage를 다시 시작하면 원래대로 돌아옵니다.",
+                        "Couldn't find the previous data folder, so the default folder is used for now.\n\nReconnect the storage device and restart Rummage to go back to it."
+                    ),
+                    _ => trs!(
+                        "原数据目录设置无效，本次使用默认目录。",
+                        "이전 데이터 폴더 설정이 올바르지 않아 이번에는 기본 폴더를 사용합니다.",
+                        "The previous data folder setting is invalid, so the default folder is used for now."
+                    ),
                 },
                 &rows,
                 vec![],
@@ -511,10 +643,22 @@ fn startup(
             let _ = fs::remove_file(&pending);
             notices.push(notice(
                 NoticeKind::Warning,
-                "更改数据目录失败",
-                "数据仍在原目录。",
-                &[("原目录", &dir)],
-                vec![format!("原因：无法写入 Rummage 的安装目录（{err}）")],
+                trs!(
+                    "更改数据目录失败",
+                    "데이터 폴더 변경 실패",
+                    "Couldn't change the data folder"
+                ),
+                trs!(
+                    "数据仍在原目录。",
+                    "데이터는 그대로 이전 폴더에 있습니다.",
+                    "Your data is still in the previous folder."
+                ),
+                &[(trs!("原目录", "이전 폴더", "Previous folder"), &dir)],
+                vec![tr!(
+                    "原因：无法写入 Rummage 的安装目录（{err}）",
+                    "원인: Rummage 설치 폴더에 쓸 수 없습니다. ({err})",
+                    "Reason: couldn't write to the Rummage installation folder ({err})"
+                )],
             ));
         }
         Ok(Some(_lock)) => {

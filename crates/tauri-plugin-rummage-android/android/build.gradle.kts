@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.cooksleep.rummage.storage"
+    namespace = "com.marierie.rummage.storage"
     compileSdk = 36
 
     defaultConfig {

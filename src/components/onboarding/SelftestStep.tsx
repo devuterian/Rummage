@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import type { DeviceResult, DeviceStatus, ParamValues, SelftestStatus } from '../../types'
 import { errorMessage } from '../../lib/errors'
+import { t } from '../../lib/i18n'
 import { isAndroid } from '../../lib/platform'
 import { deviceName, SPEED_STALE_TEXT, speedStale, switchedDevice, switchedText } from '../../lib/device'
 import { useParamValues } from '../../hooks/useParamValues'
@@ -35,7 +36,7 @@ const STATUS: Record<DeviceStatus, { label: string; icon: ReactNode }> = {
 function Timing({ what, icon, speed, sample, stale }: { what: string; icon: ReactNode; speed: number | null | undefined; sample: number | null; stale: boolean }) {
   const value = speed ?? sample
   if (value === null) return <span />
-  const label = speed == null ? `检测样本中${what}的用时` : `按${stale ? '修改前的' : '当前'}设置，${what}约 ${ms(speed)}`
+  const label = speed == null ? t('检测样本中{what}的用时', { what: t(what) }) : stale ? t('按修改前的设置，{what}约 {time}', { what: t(what), time: ms(speed) }) : t('按当前设置，{what}约 {time}', { what: t(what), time: ms(speed) })
   return (
     <Tip label={label} className="gap-1 whitespace-nowrap text-xs text-gray-500 tabular-nums dark:text-gray-400">
       {icon}
@@ -83,7 +84,7 @@ export function DeviceList({ st, values }: { st: SelftestStatus; values: ParamVa
       .then((n) => n && showToast(n))
       .catch((err) => {
         console.warn('unblock_gpu 失败：', err)
-        showToast(errorMessage(err, failed ? '无法重新检测，请重试。' : '无法解除屏蔽，请重试。'), 'error')
+        showToast(errorMessage(err, failed ? t('无法重新检测，请重试。') : t('无法解除屏蔽，请重试。')), 'error')
       })
       .finally(() => {
         setBusy(false)
@@ -92,7 +93,7 @@ export function DeviceList({ st, values }: { st: SelftestStatus; values: ParamVa
   }
   return (
     <div>
-      {rows.some(stale) && <p className="mb-2 text-xs text-amber-600 dark:text-amber-400">{SPEED_STALE_TEXT}</p>}
+      {rows.some(stale) && <p className="mb-2 text-xs text-amber-600 dark:text-amber-400">{t(SPEED_STALE_TEXT)}</p>}
       <div className={`${CARD} grid grid-cols-[auto_minmax(0,1fr)_auto_auto_auto_auto_auto] gap-x-3 max-sm:grid-cols-[auto_minmax(0,1fr)_auto]`}>
         {rows.map((d) => (
           <div key={d.id} className="col-span-full grid grid-cols-subgrid items-center px-4 py-2.5">
@@ -110,16 +111,16 @@ export function DeviceList({ st, values }: { st: SelftestStatus; values: ParamVa
               <Timing what="每段音频" icon={<AudioIcon className="h-3.5 w-3.5" />} speed={d.speed?.audioMs} sample={d.audioMs} stale={stale(d)} />
               <Timing what="每个视频片段" icon={<VideoIcon className="h-3.5 w-3.5" />} speed={d.speed?.videoMs} sample={d.videoMs} stale={stale(d)} />
             </span>
-            <Tip label={STATUS[d.status].label} className="w-full justify-end max-sm:col-start-3 max-sm:row-start-1">{STATUS[d.status].icon}</Tip>
+            <Tip label={t(STATUS[d.status].label)} className="w-full justify-end max-sm:col-start-3 max-sm:row-start-1">{STATUS[d.status].icon}</Tip>
             {(d.reason || d.status === 'blacklisted') && (
               <p data-selectable-text className="col-[2/-1] mt-1 whitespace-pre-line text-xs text-gray-500 dark:text-gray-400">
-                {d.reason ?? (isAndroid ? '这个设备出现过严重错误。' : '这块显卡出现过驱动错误。')}
+                {d.reason ?? (isAndroid ? t('这个设备出现过严重错误。') : t('这块显卡出现过驱动错误。'))}
               </p>
             )}
             {d.gpu && (d.status === 'failed' || d.status === 'blacklisted') && !st.running && (
               <span className="col-[2/-1] mt-1.5 flex justify-end">
                 <button type="button" className={SMALL_BUTTON} disabled={busy} onClick={() => (d.status === 'failed' ? clear(d) : setUnblocking(d))}>
-                  {d.status === 'failed' ? '重新检测' : '解除屏蔽'}
+                  {d.status === 'failed' ? t('重新检测') : t('解除屏蔽')}
                 </button>
               </span>
             )}
@@ -128,12 +129,10 @@ export function DeviceList({ st, values }: { st: SelftestStatus; values: ParamVa
       </div>
       {unblocking && (
         <ConfirmDialog
-          title="解除屏蔽"
-          message={`解除后会立即重新检测「${deviceName(unblocking, rows)}」，期间暂停建立索引。
-
-如果问题仍然存在，检测可能再次失败，${isAndroid ? '它' : '这块显卡'}可能重新被屏蔽。`}
-          confirmText="解除屏蔽"
-          busy={busy ? '正在解除' : undefined}
+          title={t('解除屏蔽')}
+          message={t(isAndroid ? '解除后会立即重新检测「{name}」，期间暂停建立索引。\n\n如果问题仍然存在，检测可能再次失败，它可能重新被屏蔽。' : '解除后会立即重新检测「{name}」，期间暂停建立索引。\n\n如果问题仍然存在，检测可能再次失败，这块显卡可能重新被屏蔽。', { name: deviceName(unblocking, rows) })}
+          confirmText={t('解除屏蔽')}
+          busy={busy ? t('正在解除') : undefined}
           onConfirm={() => clear(unblocking)}
           onCancel={() => setUnblocking(null)}
         />
@@ -148,7 +147,7 @@ export function DeviceList({ st, values }: { st: SelftestStatus; values: ParamVa
  */
 export function DevicePicker({ st, cpu }: { st: SelftestStatus; cpu: boolean }) {
   const options = [
-    { label: '自动', value: 'auto' },
+    { label: t('自动'), value: 'auto' },
     ...st.devices.filter((d) => d.gpu && d.status === 'passed' && !st.blocked.some((b) => b.id === d.id)).map((d) => ({ label: deviceName(d, st.devices), value: d.id })),
     ...(cpu ? [{ label: 'CPU', value: 'cpu' }] : []),
   ]
@@ -157,10 +156,10 @@ export function DevicePicker({ st, cpu }: { st: SelftestStatus; cpu: boolean }) 
   return (
     <div>
       <div className="mb-1 flex items-center justify-between gap-3">
-        <span className={ROW_LABEL}>选择设备</span>
+        <span className={ROW_LABEL}>{t('选择设备')}</span>
         <div className="min-w-0 max-w-[60%]">
           <Select
-            label="选择设备"
+            label={t('选择设备')}
             value={current}
             disabled={st.running}
             options={options}
@@ -169,13 +168,13 @@ export function DevicePicker({ st, cpu }: { st: SelftestStatus; cpu: boolean }) 
               if (device === current && device === st.preferred) return
               invoke('set_preferred_device', { device }).catch((err) => {
                 console.warn('set_preferred_device 失败：', err)
-                showToast(errorMessage(err, '操作失败，请重试。'), 'error')
+                showToast(errorMessage(err, t('操作失败，请重试。')), 'error')
               })
             }}
           />
         </div>
       </div>
-      <div className={ROW_DESC}>“自动”按检测结果选用速度最快的设备。只能选择通过检测的{isAndroid ? ' GPU 或 NPU' : '显卡'}，它之后不能使用时改为自动选择。</div>
+      <div className={ROW_DESC}>{isAndroid ? t('“自动”按检测结果选用速度最快的设备。只能选择通过检测的 GPU 或 NPU，它之后不能使用时改为自动选择。') : t('“自动”按检测结果选用速度最快的设备。只能选择通过检测的显卡，它之后不能使用时改为自动选择。')}</div>
     </div>
   )
 }
@@ -203,13 +202,13 @@ export default function SelftestStep({ selftest, model, cpu, text }: { selftest:
     // 引导中先选了只用 CPU、又开始检测时，核心改回自动选择
     invoke(cmd, cmd === 'set_preferred_device' ? { device: 'cpu' } : { onboarding: true }).catch((err) => {
       console.warn(`${cmd} 失败：`, err)
-      showToast(errorMessage(err, '操作失败，请重试。'), 'error')
+      showToast(errorMessage(err, t('操作失败，请重试。')), 'error')
     })
   }
 
   return (
     <div>
-      <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">检测设备</h2>
+      <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">{t('检测设备')}</h2>
       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{text}</p>
 
       {/* 还没检测过时也列出已屏蔽的设备，以便解除屏蔽 */}
@@ -227,38 +226,38 @@ export default function SelftestStep({ selftest, model, cpu, text }: { selftest:
           <span className="min-w-0 flex-1">
             <span className={`block text-sm text-gray-800 dark:text-gray-100 ${ROW_LONG_TEXT}`}>
               {st.running
-                ? '正在检测'
+                ? t('正在检测')
                 : cpuOnly
-                  ? '将使用「CPU」'
+                  ? t('将使用「CPU」')
                   : selected
-                    ? `将使用「${deviceName(selected, st.devices)}」`
+                    ? t('将使用「{name}」', { name: deviceName(selected, st.devices) })
                     : tested
-                      ? cpu ? '将使用「CPU」' : '没有可用的设备'
-                      : '尚未检测'}
+                      ? cpu ? t('将使用「CPU」') : t('没有可用的设备')
+                      : t('尚未检测')}
             </span>
             {!st.running && (
               <span data-selectable-text className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
                 {cpuOnly
                   ? tested
-                    ? '已选择使用 CPU'
-                    : renderMessage('已选择只用 CPU，之后可在「设置 → 设备」中重新检测')
+                    ? t('已选择使用 CPU')
+                    : renderMessage(t('已选择只用 CPU，之后可在「设置 → 设备」中重新检测'))
                   : st.error
                     ? <span className="text-red-500 dark:text-red-400">{renderMessage(st.error, 'font-semibold')}</span>
                     : st.stale
-                      ? `${isAndroid ? '' : '显卡、'}模型或所选的文件类型有变化，需要重新检测。也可以直接继续，建立索引时会在后台检测。`
+                      ? isAndroid ? t('模型或所选的文件类型有变化，需要重新检测。也可以直接继续，建立索引时会在后台检测。') : t('显卡、模型或所选的文件类型有变化，需要重新检测。也可以直接继续，建立索引时会在后台检测。')
                       : switched
                         ? <span className="text-amber-600 dark:text-amber-400">{switchedText(switched)}</span>
                         : st.preferredError
                           ? <span className="text-amber-600 dark:text-amber-400">{st.preferredError}</span>
                           : selected?.id === st.preferred
                             ? isAndroid
-                              ? '已选择使用这个设备'
-                              : '已选择使用这块显卡'
+                              ? t('已选择使用这个设备')
+                              : t('已选择使用这块显卡')
                             : tested && !selected
-                              ? cpu ? '没有通过检测的设备，将尝试使用 CPU' : '没有通过检测的设备，CPU 和 GPU 要用通用模型'
+                              ? cpu ? t('没有通过检测的设备，将尝试使用 CPU') : t('没有通过检测的设备，CPU 和 GPU 要用通用模型')
                               : !tested
-                                ? cpu ? renderMessage('也可以跳过检测，只用 CPU，之后可在「设置 → 设备」中检测') : '检测后选用通过检测的设备'
-                                : '检测通过的设备中速度最快'}
+                                ? cpu ? renderMessage(t('也可以跳过检测，只用 CPU，之后可在「设置 → 设备」中检测')) : t('检测后选用通过检测的设备')
+                                : t('检测通过的设备中速度最快')}
               </span>
             )}
           </span>
@@ -266,14 +265,14 @@ export default function SelftestStep({ selftest, model, cpu, text }: { selftest:
             <span className={`gap-1.5 ${ROW_ACTIONS}`}>
               {offerCpu && (
                 <button type="button" className={SMALL_BUTTON} onClick={() => call('set_preferred_device')}>
-                  只用 CPU
+                  {t('只用 CPU')}
                 </button>
               )}
               <button type="button" className={SMALL_BUTTON} disabled={!values} onClick={() => setAdvanced(true)}>
-                高级
+                {t('高级')}
               </button>
               <button type="button" className={SMALL_BUTTON} disabled={!model} onClick={() => call('run_selftest')}>
-                {tested ? '重新检测' : '开始检测'}
+                {tested ? t('重新检测') : t('开始检测')}
               </button>
             </span>
           )}

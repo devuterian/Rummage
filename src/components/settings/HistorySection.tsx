@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { ParamDef, ParamValue, ParamValues } from '../../types'
 import { errorMessage } from '../../lib/errors'
+import { t } from '../../lib/i18n'
 import { saveParam } from '../../lib/params'
 import { SMALL_BUTTON } from '../onboarding/styles'
 import { showToast } from '../Toast'
@@ -21,18 +22,18 @@ export default function HistorySection({ defs, values, setParam }: Props) {
 
   const clear = () => {
     invoke('clear_history')
-      .then(() => showToast('已清空搜索历史', 'success'))
+      .then(() => showToast(t('已清空搜索历史'), 'success'))
       .catch((err) => {
         console.warn('无法清空搜索历史：', err)
-        showToast(errorMessage(err, '未能清空搜索历史，请重试。'), 'error')
+        showToast(errorMessage(err, t('未能清空搜索历史，请重试。')), 'error')
       })
   }
 
   return (
     <section className="space-y-4">
       <div>
-        <h4 className={SECTION_TITLE}>搜索历史</h4>
-        <p className={`mt-1 ${ROW_DESC}`}>只保存在本机。搜索框为空时，点击搜索框或按向下键即可看到最近的搜索。</p>
+        <h4 className={SECTION_TITLE}>{t('搜索历史')}</h4>
+        <p className={`mt-1 ${ROW_DESC}`}>{t('只保存在本机。搜索框为空时，点击搜索框或按向下键即可看到最近的搜索。')}</p>
       </div>
       {HISTORY_KEYS.map((key) => {
         const def = defs.find((d) => d.key === key)
@@ -41,9 +42,9 @@ export default function HistorySection({ defs, values, setParam }: Props) {
       })}
       <div>
         <div className="mb-1 flex items-center justify-between gap-3">
-          <span className={ROW_LABEL}>清空搜索历史</span>
+          <span className={ROW_LABEL}>{t('清空搜索历史')}</span>
           <button type="button" className={SMALL_BUTTON} onClick={clear}>
-            清空
+            {t('清空')}
           </button>
         </div>
       </div>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import type { AddedRoot, RootInfo } from '../../types'
 import { errorMessage } from '../../lib/errors'
+import { t } from '../../lib/i18n'
 import { isAndroid } from '../../lib/platform'
 import { useCoreEvent } from '../../hooks/useCoreEvent'
 import { useStorageAccess } from '../../hooks/useStorageAccess'
@@ -61,7 +62,7 @@ export default function FoldersStep({ onCount, section, editor }: Props) {
       })
       .catch((err) => {
         console.warn('无法读取文件夹列表：', err)
-        setLoadError(errorMessage(err, '无法读取文件夹列表。'))
+        setLoadError(errorMessage(err, t('无法读取文件夹列表。')))
       })
   }, [onCount])
 
@@ -77,7 +78,7 @@ export default function FoldersStep({ onCount, section, editor }: Props) {
   // 可见后稍等再提示，取消选择时请求很快结束，不会闪出提示
   useEffect(() => {
     if (!busy) return
-    const hint = () => showToast('正在添加文件夹')
+    const hint = () => showToast(t('正在添加文件夹'))
     let timer: ReturnType<typeof setTimeout> | undefined
     const onVisible = () => {
       if (document.visibilityState === 'visible') timer = setTimeout(hint, 300)
@@ -101,7 +102,7 @@ export default function FoldersStep({ onCount, section, editor }: Props) {
       })
       .catch((err) => {
         console.warn('无法添加文件夹：', err)
-        setAddError(errorMessage(err, '无法添加这个文件夹。'))
+        setAddError(errorMessage(err, t('无法添加这个文件夹。')))
       })
       .finally(() => setBusy(false))
   }
@@ -112,7 +113,7 @@ export default function FoldersStep({ onCount, section, editor }: Props) {
       .then(load)
       .catch((err) => {
         console.warn('无法添加文件夹：', err)
-        setAddError(errorMessage(err, '无法添加这个文件夹。'))
+        setAddError(errorMessage(err, t('无法添加这个文件夹。')))
       })
       .finally(() => setBusy(false))
   }
@@ -124,7 +125,7 @@ export default function FoldersStep({ onCount, section, editor }: Props) {
       .then(load)
       .catch((err) => {
         console.warn('无法移除文件夹：', err)
-        showToast(errorMessage(err, '无法移除这个文件夹。'), 'error')
+        showToast(errorMessage(err, t('无法移除这个文件夹。')), 'error')
       })
   }
 
@@ -132,13 +133,13 @@ export default function FoldersStep({ onCount, section, editor }: Props) {
     <div>
       {section ? (
         <>
-          <h4 className="text-sm font-bold text-gray-800 dark:text-gray-100">文件夹</h4>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">Rummage 只读取这些文件夹中的文件，不会修改、移动或删除它们。</p>
+          <h4 className="text-sm font-bold text-gray-800 dark:text-gray-100">{t('文件夹')}</h4>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">{t('Rummage 只读取这些文件夹中的文件，不会修改、移动或删除它们。')}</p>
         </>
       ) : (
         <>
-          <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">选择要搜索的文件夹</h2>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Rummage 只读取这些文件夹中的文件，不会修改、移动或删除它们。</p>
+          <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">{t('选择要搜索的文件夹')}</h2>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('Rummage 只读取这些文件夹中的文件，不会修改、移动或删除它们。')}</p>
         </>
       )}
 
@@ -146,11 +147,11 @@ export default function FoldersStep({ onCount, section, editor }: Props) {
         <div className="mt-4 flex items-center gap-3 rounded-2xl bg-amber-500/[0.1] px-4 py-3 max-sm:flex-wrap dark:bg-amber-500/[0.14]">
           <WarningIcon className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 max-sm:self-start max-sm:mt-0.5" />
           <span className="min-w-0 flex-1 max-sm:basis-[calc(100%-1.75rem)]">
-            <span className="block text-sm font-medium text-amber-800 dark:text-amber-300">需要“所有文件访问”权限</span>
-            <span className="mt-0.5 block text-xs text-amber-700 dark:text-amber-400/90">用于读取要建立索引的文件。Rummage 只读取，不修改、不上传。</span>
+            <span className="block text-sm font-medium text-amber-800 dark:text-amber-300">{t('需要“所有文件访问”权限')}</span>
+            <span className="mt-0.5 block text-xs text-amber-700 dark:text-amber-400/90">{t('用于读取要建立索引的文件。Rummage 只读取，不修改、不上传。')}</span>
           </span>
           <button type="button" onClick={storage.request} className={`shrink-0 max-sm:ml-7 ${SMALL_PRIMARY_BUTTON}`}>
-            前往授权
+            {t('前往授权')}
           </button>
         </div>
       )}
@@ -168,7 +169,7 @@ export default function FoldersStep({ onCount, section, editor }: Props) {
                   <HoverTip label={r.path} wrap />
                 </span>
                 <span className={`mt-0.5 block text-xs ${r.offline ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                  {r.missing ? '找不到文件夹' : r.offline ? '设备未连接' : r.scanning ? '正在统计文件' : `${r.files} 个文件`}
+                  {r.missing ? t('找不到文件夹') : r.offline ? t('设备未连接') : r.scanning ? t('正在统计文件') : t('{n} 个文件', { n: r.files })}
                 </span>
               </span>
               {/* 只有移除按钮时留在行尾，手机宽度下也不另起一行 */}
@@ -187,11 +188,11 @@ export default function FoldersStep({ onCount, section, editor }: Props) {
                 <button
                   type="button"
                   onClick={() => setRemoving(r)}
-                  aria-label="移除文件夹"
+                  aria-label={t('移除文件夹')}
                   className={`shrink-0 ${ROW_ICON_BUTTON}`}
                 >
                   <CloseIcon className="h-4 w-4" />
-                  <HoverTip label="移除（不会删除你的文件）" />
+                  <HoverTip label={t('移除（不会删除你的文件）')} />
                 </button>
               </span>
             </div>
@@ -203,28 +204,28 @@ export default function FoldersStep({ onCount, section, editor }: Props) {
             <PlusIcon className="h-4 w-4" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-sm text-gray-700 dark:text-gray-200">添加文件夹</span>
-            <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">{roots && !roots.length ? '还没有添加文件夹，' : ''}只添加需要搜索的文件夹，不建议添加{isAndroid ? '整个存储' : '整个磁盘'}</span>
+            <span className="block text-sm text-gray-700 dark:text-gray-200">{t('添加文件夹')}</span>
+            <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">{roots && !roots.length ? t('还没有添加文件夹，') : ''}{isAndroid ? t('只添加需要搜索的文件夹，不建议添加整个存储') : t('只添加需要搜索的文件夹，不建议添加整个磁盘')}</span>
           </span>
         </button>
         {isAndroid && storage.granted && (
           <div className={`${CARD_ROW} flex-wrap`}>
-            <span className="text-xs text-gray-500 dark:text-gray-400">快速添加</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">{t('快速添加')}</span>
             {COMMON_ROOTS.map((name) => (
               <button key={name} type="button" disabled={busy || addedCommon.has(name)} onClick={() => addCommon(name)} className={SMALL_BUTTON}>
                 {name}
               </button>
             ))}
-            <span className="basis-full text-xs text-gray-400 dark:text-gray-500">系统的文件夹选择器可能不允许选择 Download 等文件夹，可以在这里直接添加</span>
+            <span className="basis-full text-xs text-gray-400 dark:text-gray-500">{t('系统的文件夹选择器可能不允许选择 Download 等文件夹，可以在这里直接添加')}</span>
           </div>
         )}
       </div>
       {loadError && <LoadError message={loadError} onRetry={load} className="mt-2" />}
       {addError && (
         <ConfirmDialog
-          title="无法添加文件夹"
+          title={t('无法添加文件夹')}
           message={addError}
-          confirmText="知道了"
+          confirmText={t('知道了')}
           hideCancel
           onConfirm={() => setAddError('')}
           onCancel={() => setAddError('')}
@@ -232,9 +233,9 @@ export default function FoldersStep({ onCount, section, editor }: Props) {
       )}
       {removing && (
         <ConfirmDialog
-          title="移除文件夹"
-          message={`将不再索引「${removing.path}」，并删除它的索引数据。\n\n不会删除你的文件。`}
-          confirmText="移除"
+          title={t('移除文件夹')}
+          message={t('将不再索引「{path}」，并删除它的索引数据。\n\n不会删除你的文件。', { path: removing.path })}
+          confirmText={t('移除')}
           danger
           onConfirm={() => {
             remove(removing.id)
@@ -245,12 +246,12 @@ export default function FoldersStep({ onCount, section, editor }: Props) {
       )}
       {wholeDrive && (
         <ConfirmDialog
-          title="建议只添加需要的文件夹"
-          message={`「${wholeDrive.path}」是${isAndroid ? '整个存储' : '整个磁盘'}，其中的系统与程序文件大多只能按文件名搜索。Rummage 不是为全盘索引设计的，文件过多会拖慢建立索引和搜索。\n\n请尽量只添加需要搜索的文件夹。`}
-          confirmText="移除"
+          title={t('建议只添加需要的文件夹')}
+          message={t(isAndroid ? '「{path}」是整个存储，其中的系统与程序文件大多只能按文件名搜索。Rummage 不是为全盘索引设计的，文件过多会拖慢建立索引和搜索。\n\n请尽量只添加需要搜索的文件夹。' : '「{path}」是整个磁盘，其中的系统与程序文件大多只能按文件名搜索。Rummage 不是为全盘索引设计的，文件过多会拖慢建立索引和搜索。\n\n请尽量只添加需要搜索的文件夹。', { path: wholeDrive.path })}
+          confirmText={t('移除')}
           danger
           hideCancel
-          extra={{ label: '保留', onClick: () => setWholeDrive(null) }}
+          extra={{ label: t('保留'), onClick: () => setWholeDrive(null) }}
           onConfirm={() => {
             remove(wholeDrive.id)
             setWholeDrive(null)

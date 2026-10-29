@@ -19,7 +19,12 @@ pub enum HashError {
     #[error(transparent)]
     Fs(#[from] FsError),
     /// 系统错误只写日志
-    #[error("无法读取 \"{path}\"：{}", fsx::io_cause(.source))]
+    #[error("{}", rummage_proto::tr!(
+        "无法读取 \"{}\"：{}",
+        "\"{}\"를 읽을 수 없습니다: {}",
+        "Can't read \"{}\": {}",
+        .path, fsx::io_cause(.source)
+    ))]
     Io { path: String, source: io::Error },
 }
 

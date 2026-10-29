@@ -6,6 +6,7 @@ import { downloadUpdate, getReadyUpdate, installUpdate } from '../lib/clientUpda
 import { errorMessage } from '../lib/errors'
 import { compareVersions } from '../lib/releaseUpdates'
 import { showToast } from '../components/Toast'
+import { t } from '../lib/i18n'
 
 /** 安装前的确认框，由更新弹窗显示 */
 export interface InstallConfirm {
@@ -67,7 +68,7 @@ export async function startClientUpdateDownload(version: string) {
     // 保存失败时原有安装包可能已被删除，也可能仍在，按磁盘上的实际情况显示“安装”或“下载”
     const ready = await readReady()
     useClientUpdate.setState({ status: ready ? 'ready' : 'idle', readyVersion: ready ?? '' })
-    showToast(errorMessage(err, '下载更新失败，请重试。'), 'error')
+    showToast(errorMessage(err, t('下载更新失败，请重试。')), 'error')
   }
 }
 
@@ -82,7 +83,7 @@ export async function startClientUpdateInstall() {
     // 安装包可能已在 Rust 侧校验失败并被删除，重新确认后决定显示“安装”还是“下载”
     const version = await readReady()
     useClientUpdate.setState({ status: version ? 'ready' : 'idle', readyVersion: version ?? '' })
-    showToast(errorMessage(err, '安装更新失败，请重试。'), 'error')
+    showToast(errorMessage(err, t('安装更新失败，请重试。')), 'error')
   }
 }
 
@@ -112,23 +113,23 @@ export async function requestClientUpdateInstall(latestVersion: string) {
   const outdated = compareVersions(readyVersion, latestVersion) < 0
   if (!busy && !outdated) return void startClientUpdateInstall()
   useClientUpdate.setState({ status: 'ready' })
-  const warning = '后台服务正在下载、导入模型或检测设备。\n\n安装更新会关闭 Rummage 和后台服务，并中断这些操作。'
+  const warning = t('后台服务正在下载、导入模型或检测设备。\n\n安装更新会关闭 Rummage 和后台服务，并中断这些操作。')
   const install = () => {
     closeConfirm()
     void startClientUpdateInstall()
   }
   if (!outdated) {
-    useClientUpdate.setState({ confirm: { title: '安装更新', message: warning, confirmText: '安装', danger: true, onConfirm: install } })
+    useClientUpdate.setState({ confirm: { title: t('安装更新'), message: warning, confirmText: t('安装'), danger: true, onConfirm: install } })
     return
   }
   useClientUpdate.setState({
     confirm: {
-      title: '发现更新的版本',
-      message: `最新版本为 v${latestVersion}，已下载的是 v${readyVersion}。${busy ? `\n\n${warning}` : ''}`,
-      confirmText: '继续安装',
+      title: t('发现更新的版本'),
+      message: `${t('最新版本为 v{latest}，已下载的是 v{ready}。', { latest: latestVersion, ready: readyVersion })}${busy ? `\n\n${warning}` : ''}`,
+      confirmText: t('继续安装'),
       danger: busy,
       extra: {
-        label: '下载新版本',
+        label: t('下载新版本'),
         onClick: () => {
           closeConfirm()
           void startClientUpdateDownload(latestVersion)

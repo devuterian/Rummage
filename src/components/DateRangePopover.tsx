@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useClickOutside } from '../hooks/useClickOutside'
 import { useEscape } from '../hooks/useEscape'
 import { isReversed } from '../lib/filter'
+import { t } from '../lib/i18n'
 import { SMALL_PLAIN_BUTTON, SMALL_PRIMARY_BUTTON } from './onboarding/styles'
 import ViewportTooltip from './ViewportTooltip'
 
@@ -35,26 +36,26 @@ export default function DateRangePopover({ from, to, onApply, onClose }: Props) 
     <div
       ref={ref}
       role="dialog"
-      aria-label="自定义修改时间"
+      aria-label={t('自定义修改时间')}
       className="absolute right-0 top-full z-50 mt-1.5 w-56 animate-dropdown-down rounded-xl border border-transparent bg-white/95 p-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] ring-1 ring-black/5 backdrop-blur-xl dark:bg-gray-800/95 dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)] dark:ring-white/[0.06]"
     >
       <label className="block text-xs text-gray-500 dark:text-gray-400">
-        开始日期
+        {t('开始日期')}
         <input type="date" value={start} max={end || undefined} onChange={(e) => setStart(e.target.value)} className={`mt-1 ${INPUT_CLASS}`} />
       </label>
       <label className="mt-2 block text-xs text-gray-500 dark:text-gray-400">
-        结束日期
+        {t('结束日期')}
         <span className="relative mt-1 block">
           <input type="date" value={end} min={start || undefined} onChange={(e) => setEnd(e.target.value)} className={INPUT_CLASS} />
-          <ViewportTooltip visible={reversed} className="whitespace-nowrap">结束日期不能早于开始日期</ViewportTooltip>
+          <ViewportTooltip visible={reversed} className="whitespace-nowrap">{t('结束日期不能早于开始日期')}</ViewportTooltip>
         </span>
       </label>
       <div className="mt-3 flex gap-2">
         <button type="button" onClick={onClose} className={`flex-1 ${SMALL_PLAIN_BUTTON}`}>
-          取消
+          {t('取消')}
         </button>
         <button type="button" disabled={reversed || (!start && !end)} onClick={() => onApply(start, end)} className={`flex-1 ${SMALL_PRIMARY_BUTTON}`}>
-          确定
+          {t('确定')}
         </button>
       </div>
     </div>

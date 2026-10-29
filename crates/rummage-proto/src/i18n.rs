@@ -14,10 +14,23 @@ pub enum Lang {
     En,
 }
 
+#[cfg(not(test))]
 static LANG: AtomicU8 = AtomicU8::new(0);
+// 测试并行运行：每个线程各有一份，切换语言的测试不影响其他按中文断言的测试
+#[cfg(test)]
+thread_local! {
+    static LANG: AtomicU8 = const { AtomicU8::new(0) };
+}
+
+fn with_lang<T>(f: impl FnOnce(&AtomicU8) -> T) -> T {
+    #[cfg(not(test))]
+    return f(&LANG);
+    #[cfg(test)]
+    return LANG.with(f);
+}
 
 pub fn lang() -> Lang {
-    match LANG.load(Ordering::Relaxed) {
+    match with_lang(|l| l.load(Ordering::Relaxed)) {
         1 => Lang::Ko,
         2 => Lang::En,
         _ => Lang::Zh,
@@ -30,7 +43,7 @@ pub fn set_lang(lang: Lang) {
         Lang::Ko => 1,
         Lang::En => 2,
     };
-    LANG.store(v, Ordering::Relaxed);
+    with_lang(|l| l.store(v, Ordering::Relaxed));
 }
 
 /// 按当前语言选用三种写法之一并 `format!`：`tr!("中文 {n}", "한국어 {n}", "English {n}")`，

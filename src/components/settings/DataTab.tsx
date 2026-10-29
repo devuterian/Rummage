@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import type { CoreStatus, ParamDef, StorageInfo } from '../../types'
 import { errorMessage } from '../../lib/errors'
 import { formatSize } from '../../lib/format'
+import { t } from '../../lib/i18n'
 import { isAndroid } from '../../lib/platform'
 import ChangeDataDirButton from '../ChangeDataDirButton'
 import ConfirmDialog from '../ConfirmDialog'
@@ -47,7 +48,7 @@ export default function DataTab({ defs, offline, coreStatus }: { defs: ParamDef[
       })
       .catch((err) => {
         console.warn('无法统计数据目录占用：', err)
-        setLoadError(errorMessage(err, '无法统计占用空间。'))
+        setLoadError(errorMessage(err, t('无法统计占用空间。')))
       })
   }, [])
 
@@ -56,7 +57,7 @@ export default function DataTab({ defs, offline, coreStatus }: { defs: ParamDef[
   const open = () => {
     invoke('open_data_dir').catch((err) => {
       console.warn('打开数据目录失败：', err)
-      showToast(errorMessage(err, '无法打开数据目录。'), 'error')
+      showToast(errorMessage(err, t('无法打开数据目录。')), 'error')
     })
   }
 
@@ -65,12 +66,12 @@ export default function DataTab({ defs, offline, coreStatus }: { defs: ParamDef[
     setClearing(true)
     invoke('clear_index')
       .then(() => {
-        showToast('已清空索引，正在按现有文件夹重新建立', 'success')
+        showToast(t('已清空索引，正在按现有文件夹重新建立'), 'success')
         load()
       })
       .catch((err) => {
         console.warn('清空索引失败：', err)
-        showToast(errorMessage(err, '清空索引失败，请重试。'), 'error')
+        showToast(errorMessage(err, t('清空索引失败，请重试。')), 'error')
       })
       .finally(() => setClearing(false))
   }
@@ -80,7 +81,7 @@ export default function DataTab({ defs, offline, coreStatus }: { defs: ParamDef[
   return (
     <div className="space-y-8">
       <section className="space-y-3">
-        <h4 className={SECTION_TITLE}>数据目录</h4>
+        <h4 className={SECTION_TITLE}>{t('数据目录')}</h4>
         <div className={CARD}>
           <div className={CARD_ROW}>
             <span className={`${ROW_ICON_TILE} ${ICON_TILE}`}>
@@ -99,7 +100,7 @@ export default function DataTab({ defs, offline, coreStatus }: { defs: ParamDef[
                 </span>
               )}
               {info ? (
-                <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">共 {formatSize(total)}</span>
+                <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">{t('共 {size}', { size: formatSize(total) })}</span>
               ) : (
                 <span className="mt-0.5 flex h-4 items-center">
                   <span className={`h-3 w-16 ${PLACEHOLDER}`} />
@@ -109,9 +110,9 @@ export default function DataTab({ defs, offline, coreStatus }: { defs: ParamDef[
             {!isAndroid && (
               <span className={`gap-1.5 ${ROW_ACTIONS}`}>
                 <button type="button" className={SMALL_BUTTON} disabled={!info} onClick={open}>
-                  打开
+                  {t('打开')}
                 </button>
-                <ChangeDataDirButton label="更改位置" className={SMALL_BUTTON} disabled={!info} />
+                <ChangeDataDirButton label={t('更改位置')} className={SMALL_BUTTON} disabled={!info} />
               </span>
             )}
           </div>
@@ -120,7 +121,7 @@ export default function DataTab({ defs, offline, coreStatus }: { defs: ParamDef[
       </section>
 
       <section className="space-y-3">
-        <h4 className={SECTION_TITLE}>空间占用</h4>
+        <h4 className={SECTION_TITLE}>{t('空间占用')}</h4>
         <div className={CARD}>
           <div className="px-4 py-3.5">
             <div className="flex h-2 w-full gap-0.5 overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/[0.08]">
@@ -134,7 +135,7 @@ export default function DataTab({ defs, offline, coreStatus }: { defs: ParamDef[
           {PARTS.map((p) => (
             <div key={p.key} className="flex items-center gap-2.5 px-4 py-2.5">
               <span className={`h-2 w-2 flex-shrink-0 rounded-full ${p.color}`} />
-              <span className="flex-1 text-sm text-gray-600 dark:text-gray-300">{p.label}</span>
+              <span className="flex-1 text-sm text-gray-600 dark:text-gray-300">{t(p.label)}</span>
               {info ? (
                 <span className="text-xs tabular-nums text-gray-500 dark:text-gray-400">{formatSize(info[p.key])}</span>
               ) : (
@@ -148,7 +149,7 @@ export default function DataTab({ defs, offline, coreStatus }: { defs: ParamDef[
       <ConfigSection defs={defs} offline={offline} coreStatus={coreStatus} />
 
       <section className="space-y-3">
-        <h4 className={SECTION_TITLE}>索引</h4>
+        <h4 className={SECTION_TITLE}>{t('索引')}</h4>
         {offline ? <CoreStatusNotice status={coreStatus} className={SECTION_NOTICE} /> : (
           <div className={CARD}>
             <div className={CARD_ROW}>
@@ -156,12 +157,12 @@ export default function DataTab({ defs, offline, coreStatus }: { defs: ParamDef[
                 <TrashIcon className="h-4 w-4" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm text-gray-800 dark:text-gray-100">清空索引</span>
-                <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">删除全部索引后按现有文件夹重新建立，不会删除你的文件。</span>
+                <span className="block text-sm text-gray-800 dark:text-gray-100">{t('清空索引')}</span>
+                <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">{t('删除全部索引后按现有文件夹重新建立，不会删除你的文件。')}</span>
               </span>
               <span className={ROW_ACTIONS}>
                 <button type="button" className={SMALL_DANGER_BUTTON} disabled={clearing} onClick={() => setConfirmClear(true)}>
-                  {clearing ? '正在清空' : '清空'}
+                  {clearing ? t('正在清空') : t('清空')}
                 </button>
               </span>
             </div>
@@ -171,9 +172,9 @@ export default function DataTab({ defs, offline, coreStatus }: { defs: ParamDef[
 
       {confirmClear && (
         <ConfirmDialog
-          title="清空索引"
-          message={'将删除全部索引数据，并按现有文件夹重新建立。\n\n不会删除你的文件，文件夹列表与设置会保留。'}
-          confirmText="清空"
+          title={t('清空索引')}
+          message={t('将删除全部索引数据，并按现有文件夹重新建立。\n\n不会删除你的文件，文件夹列表与设置会保留。')}
+          confirmText={t('清空')}
           danger
           onConfirm={clearIndex}
           onCancel={() => setConfirmClear(false)}

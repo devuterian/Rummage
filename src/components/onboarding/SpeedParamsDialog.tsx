@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import type { ParamDef, ParamValue, ParamValues } from '../../types'
 import { errorMessage } from '../../lib/errors'
+import { t } from '../../lib/i18n'
 import { saveParam } from '../../lib/params'
 import { isAndroid } from '../../lib/platform'
 import ConfirmDialog from '../ConfirmDialog'
@@ -30,7 +31,7 @@ export default function SpeedParamsDialog({ values, onClose }: { values: ParamVa
       .then(setDefs)
       .catch((err) => {
         console.warn('无法读取设置：', err)
-        setLoadError(errorMessage(err, '无法读取设置，请稍后再试。'))
+        setLoadError(errorMessage(err, t('无法读取设置，请稍后再试。')))
       })
   }, [])
 
@@ -48,7 +49,7 @@ export default function SpeedParamsDialog({ values, onClose }: { values: ParamVa
   const list = SPEED_KEYS.flatMap((k) => defs?.find((d) => d.key === k && (!d.platform || d.platform === platform)) ?? [])
 
   return (
-    <ConfirmDialog title="高级" message="以下设置影响建立索引的速度，修改后重新检测，测得的用时随之更新。" confirmText="完成" hideCancel onConfirm={onClose} onCancel={onClose}>
+    <ConfirmDialog title={t('高级')} message={t('以下设置影响建立索引的速度，修改后重新检测，测得的用时随之更新。')} confirmText={t('完成')} hideCancel onConfirm={onClose} onCancel={onClose}>
       <div className="space-y-4">
         {loadError && <LoadError message={loadError} onRetry={load} />}
         {list.map((d) => (

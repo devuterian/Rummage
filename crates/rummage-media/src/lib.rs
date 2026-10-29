@@ -50,19 +50,44 @@ pub struct Rgb {
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     /// 系统错误只写日志，下同
-    #[error("无法读取图片 \"{}\"，请确认它存在且可以打开。", .path.display())]
+    #[error("{}", rummage_proto::tr!(
+        "无法读取图片 \"{}\"，请确认它存在且可以打开。",
+        "이미지 \"{}\"를 읽을 수 없습니다. 파일이 있고 열 수 있는지 확인하십시오.",
+        "Can't read the image \"{}\". Make sure it exists and can be opened.",
+        .path.display()
+    ))]
     Io {
         path: PathBuf,
         source: std::io::Error,
     },
-    #[error("无法解码图片 \"{}\"，文件可能已损坏或格式不受支持。", .path.display())]
+    #[error("{}", rummage_proto::tr!(
+        "无法解码图片 \"{}\"，文件可能已损坏或格式不受支持。",
+        "이미지 \"{}\"를 디코딩할 수 없습니다. 파일이 손상되었거나 지원하지 않는 형식일 수 있습니다.",
+        "Can't decode the image \"{}\". The file may be corrupted or in an unsupported format.",
+        .path.display()
+    ))]
     Decode { path: PathBuf },
     /// 设置项名称与参数表 `max_image_mp` 一致
-    #[error("图片 \"{}\" 的像素数超过设置中的“图片像素上限（百万像素）”，不识别内容。", .path.display())]
+    #[error("{}", rummage_proto::tr!(
+        "图片 \"{}\" 的像素数超过设置中的“图片像素上限（百万像素）”，不识别内容。",
+        "이미지 \"{}\"의 픽셀 수가 설정의 ‘이미지 픽셀 상한(메가픽셀)’을 넘어 내용을 인식하지 않습니다.",
+        "The image \"{}\" exceeds “Max image pixels (megapixels)” in Settings, so its content isn't recognized.",
+        .path.display()
+    ))]
     TooLarge { path: PathBuf },
-    #[error("图片尺寸为 {width}×{height}，过于细长或为空，无法识别内容。")]
+    #[error("{}", rummage_proto::tr!(
+        "图片尺寸为 {}×{}，过于细长或为空，无法识别内容。",
+        "이미지 크기가 {}×{}로 너무 길쭉하거나 비어 있어 내용을 인식할 수 없습니다.",
+        "The image size is {}×{}, which is too narrow or empty to recognize.",
+        .width, .height
+    ))]
     UnsupportedSize { width: u32, height: u32 },
-    #[error("图像数据长度与尺寸 {width}×{height} 不符，无法缩放。")]
+    #[error("{}", rummage_proto::tr!(
+        "图像数据长度与尺寸 {}×{} 不符，无法缩放。",
+        "이미지 데이터 길이가 크기 {}×{}와 맞지 않아 크기를 조정할 수 없습니다.",
+        "The image data length doesn't match the size {}×{}, so it can't be resized.",
+        .width, .height
+    ))]
     InvalidPixels { width: u32, height: u32 },
 }
 

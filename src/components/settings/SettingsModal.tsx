@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Compone
 import { invoke } from '@tauri-apps/api/core'
 import type { Appearance, CoreStatus, Notice, ParamDef, ParamGroup, ParamValue, ParamValues, ProxySetting, SetupStatus } from '../../types'
 import { errorMessage } from '../../lib/errors'
+import { t } from '../../lib/i18n'
 import { setAutoCheck, useReleaseUpdates } from '../../hooks/useReleaseUpdates'
 import { isAndroid, isTauri } from '../../lib/platform'
 import { dismissAllTooltips } from '../../lib/tooltipDismiss'
@@ -94,7 +95,7 @@ export default function SettingsModal({ onClose, coreStatus, setup, setupError, 
       })
       .catch((err) => {
         console.warn('无法读取设置：', err)
-        setLoadError(errorMessage(err, '无法读取设置，请稍后再试。'))
+        setLoadError(errorMessage(err, t('无法读取设置，请稍后再试。')))
       })
     invoke<Notice[]>('get_notices')
       .then(setNotices)
@@ -163,7 +164,7 @@ export default function SettingsModal({ onClose, coreStatus, setup, setupError, 
       .then(() => setNotices((list) => list.filter((x) => x !== n)))
       .catch((err) => {
         console.warn('无法清除通知：', err)
-        setNoticeError(errorMessage(err, '无法清除这条提示，请重试。'))
+        setNoticeError(errorMessage(err, t('无法清除这条提示，请重试。')))
       })
   }
 
@@ -180,24 +181,24 @@ export default function SettingsModal({ onClose, coreStatus, setup, setupError, 
       return (
         <div className="space-y-8">
           <section className="space-y-4">
-            <h4 className={SECTION_TITLE}>网络</h4>
+            <h4 className={SECTION_TITLE}>{t('网络')}</h4>
             {offline ? (
               <CoreStatusNotice status={coreStatus} className={SECTION_NOTICE} />
             ) : setup ? (
-              <ProxyForm saved={setup.proxy} onSaved={onProxy} label="网络代理" />
+              <ProxyForm saved={setup.proxy} onSaved={onProxy} label={t('网络代理')} />
             ) : (
               setupError && <LoadError message={setupError} onRetry={onSetupRetry} />
             )}
           </section>
           {/* 开关存在本地，不依赖后台服务 */}
           <section className="space-y-4">
-            <h4 className={SECTION_TITLE}>更新</h4>
+            <h4 className={SECTION_TITLE}>{t('更新')}</h4>
             <div>
               <div className="mb-1 flex items-center justify-between gap-3">
-                <span className={ROW_LABEL}>自动检查更新</span>
-                <Toggle checked={autoCheck} onChange={setAutoCheck} label="自动检查更新" />
+                <span className={ROW_LABEL}>{t('自动检查更新')}</span>
+                <Toggle checked={autoCheck} onChange={setAutoCheck} label={t('自动检查更新')} />
               </div>
-              <div className={ROW_DESC}>{renderMessage('开启后，启动时会从 GitHub 获取版本信息，有新版本时在右上角显示 NEW 提示。关闭后可在「设置 → 关于」中手动检查更新。')}</div>
+              <div className={ROW_DESC}>{renderMessage(t('开启后，启动时会从 GitHub 获取版本信息，有新版本时在右上角显示 NEW 提示。关闭后可在「设置 → 关于」中手动检查更新。'))}</div>
             </div>
           </section>
         </div>
@@ -219,13 +220,13 @@ export default function SettingsModal({ onClose, coreStatus, setup, setupError, 
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="设置"
+        aria-label={t('设置')}
         className="relative z-10 flex h-[85vh] max-h-full w-full max-w-3xl animate-modal-in flex-col overflow-hidden rounded-3xl border border-white/50 bg-white/95 shadow-2xl ring-1 ring-black/5 dark:border-white/[0.08] dark:bg-gray-900/95 dark:ring-white/10 sm:h-[600px]"
       >
         <div className="flex shrink-0 items-center justify-between border-b border-gray-100 p-5 dark:border-white/[0.08]">
           <h3 className="flex items-center gap-2 text-lg font-bold text-gray-800 dark:text-gray-100">
             <SettingsIcon className="h-5 w-5 text-blue-500" />
-            设置
+            {t('设置')}
           </h3>
           <div className="flex items-center gap-3">
             <span className="select-none font-mono text-sm text-gray-400 dark:text-gray-500">v{__APP_VERSION__}</span>
@@ -233,7 +234,7 @@ export default function SettingsModal({ onClose, coreStatus, setup, setupError, 
               type="button"
               onClick={onClose}
               className="rounded-full p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
-              aria-label="关闭"
+              aria-label={t('关闭')}
             >
               <CloseIcon className="h-5 w-5" />
             </button>
@@ -244,11 +245,11 @@ export default function SettingsModal({ onClose, coreStatus, setup, setupError, 
           <div key={n} className={`mx-5 mt-4 shrink-0 ${NOTICE_BOX}`}>
             <WarningIcon className="mt-px h-4 w-4 flex-shrink-0" />
             <span className="flex-1">
-              {NOTICE_TEXT[n]}
+              {t(NOTICE_TEXT[n])}
               {noticeError && <span data-selectable-text className="mt-1 block text-red-500 dark:text-red-400">{noticeError}</span>}
             </span>
             <button type="button" className="flex-shrink-0 font-medium hover:underline" onClick={() => dismiss(n)}>
-              知道了
+              {t('知道了')}
             </button>
           </div>
         ))}
@@ -256,19 +257,19 @@ export default function SettingsModal({ onClose, coreStatus, setup, setupError, 
         <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
           <div className="flex w-full shrink-0 flex-col border-b border-gray-100 bg-gray-50/50 dark:border-white/[0.08] dark:bg-white/[0.02] sm:w-48 sm:border-b-0 sm:border-r">
             <nav ref={navRef} className="relative flex flex-1 space-x-1 overflow-x-auto p-3 sm:flex-col sm:space-x-0 sm:space-y-1 sm:overflow-y-auto">
-              {TABS.map((t) => (
+              {TABS.map((item) => (
                 <button
-                  key={t.id}
+                  key={item.id}
                   type="button"
-                  aria-current={tab === t.id ? 'page' : undefined}
+                  aria-current={tab === item.id ? 'page' : undefined}
                   onClick={() => {
-                    setTab(t.id)
+                    setTab(item.id)
                     setFocus(undefined)
                   }}
-                  className={`flex flex-shrink-0 items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm transition-colors ${tab === t.id ? 'bg-white font-medium text-blue-600 shadow-sm dark:bg-white/[0.08] dark:text-blue-400' : 'text-gray-600 hover:bg-gray-100/80 dark:text-gray-400 dark:hover:bg-white/[0.04]'}`}
+                  className={`flex flex-shrink-0 items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm transition-colors ${tab === item.id ? 'bg-white font-medium text-blue-600 shadow-sm dark:bg-white/[0.08] dark:text-blue-400' : 'text-gray-600 hover:bg-gray-100/80 dark:text-gray-400 dark:hover:bg-white/[0.04]'}`}
                 >
-                  <t.icon className="h-4 w-4" />
-                  {t.label}
+                  <item.icon className="h-4 w-4" />
+                  {t(item.label)}
                 </button>
               ))}
             </nav>

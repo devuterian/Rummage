@@ -1,4 +1,4 @@
-package com.cooksleep.rummage.storage
+package com.marierie.rummage.storage
 
 import android.app.Activity
 import android.app.PendingIntent
@@ -27,7 +27,7 @@ import java.io.File
  * - 最终结果以 `{ status, code, message }` 交给 Rust 侧：`status` 见 [InstallStatus.kind]，`message` 是系统给出的原因。
  */
 object ApkInstaller {
-  private const val ACTION = "com.cooksleep.rummage.storage.INSTALL_STATUS"
+  private const val ACTION = "com.marierie.rummage.storage.INSTALL_STATUS"
 
   /** 在后台线程中调用：写入 APK 要读整个文件 */
   fun install(activity: Activity, apk: File, invoke: Invoke) {

@@ -83,6 +83,23 @@ pub fn default_app(ext: &str) -> Option<std::path::PathBuf> {
     (n > 0).then(|| std::ffi::OsString::from_wide(&buf[..n]).into())
 }
 
+/// 按系统区域设置（如 ko-KR）选界面语言，规则与前端首次启动时一致（`src/lib/i18n.ts` 的 `detectLang`）。
+/// 连上核心、读到外观设置前的文字（数据目录对话框、托盘菜单）先按它显示
+pub fn system_lang() -> rummage_proto::Lang {
+    let name = windows_registry::CURRENT_USER
+        .open(r"Control Panel\International")
+        .and_then(|key| key.get_string("LocaleName"))
+        .unwrap_or_default()
+        .to_lowercase();
+    if name.starts_with("zh") {
+        rummage_proto::Lang::Zh
+    } else if name.starts_with("en") {
+        rummage_proto::Lang::En
+    } else {
+        rummage_proto::Lang::Ko
+    }
+}
+
 /// 如“Windows 10 Pro 24H2（内部版本 26100.4351）”；注册表中的名称在 Windows 11 上仍写作 Windows 10，以内部版本号为准
 pub fn os_version() -> String {
     let key = match windows_registry::LOCAL_MACHINE

@@ -181,9 +181,13 @@ impl ScanLimits {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ScanError {
-    #[error("找不到该文件夹，它可能已被移除。")]
+    #[error("{}", rummage_proto::trs!(
+        "找不到该文件夹，它可能已被移除。",
+        "폴더를 찾을 수 없습니다. 제거되었을 수 있습니다.",
+        "The folder can't be found. It may have been removed."
+    ))]
     NoRoot,
-    #[error("扫描已取消。")]
+    #[error("{}", rummage_proto::trs!("扫描已取消。", "스캔이 취소되었습니다.", "Scan canceled."))]
     Cancelled,
     #[error(transparent)]
     Db(#[from] DbError),

@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
+use rummage_proto::{tr, trs};
 use windows_sys::Win32::Foundation::{
     CloseHandle, HANDLE, HWND, INVALID_HANDLE_VALUE, LPARAM, S_FALSE, S_OK, WAIT_OBJECT_0, WPARAM,
 };
@@ -305,15 +306,19 @@ pub fn wait_previous(pid: Option<u32>, from: &Path, progress: &Progress) -> Resu
     let previous = pid.and_then(|pid| open_process(pid, PROCESS_SYNCHRONIZE));
     if !wait_exit(previous.into_iter().collect(), progress)? {
         log::warn!("原来的 Rummage 30 秒内没有退出");
-        return Err(Failure::new(
+        return Err(Failure::new(trs!(
             "原来的 Rummage 未能及时退出，请在任务管理器中确认它已关闭后再重新启动 Rummage。",
-        ));
+            "이전 Rummage가 제때 종료되지 않았습니다. 작업 관리자에서 종료되었는지 확인한 뒤 Rummage를 다시 시작하십시오.",
+            "The previous Rummage didn't exit in time. Make sure it's closed in Task Manager, then restart Rummage."
+        )));
     }
     if !wait_exit(core_processes(), progress)? {
         log::warn!("rummage-core.exe 30 秒内没有退出");
-        return Err(Failure::new(
+        return Err(Failure::new(trs!(
             "Rummage 仍在后台运行（可能由其他程序启动），请在任务管理器中结束“rummage-core”后再重新启动 Rummage。",
-        ));
+            "Rummage가 아직 백그라운드에서 실행 중입니다(다른 프로그램이 실행했을 수 있음). 작업 관리자에서 \"rummage-core\"를 종료한 뒤 Rummage를 다시 시작하십시오.",
+            "Rummage is still running in the background (it may have been started by another program). End \"rummage-core\" in Task Manager, then restart Rummage."
+        )));
     }
     let lockfile = from.join("webview").join("EBWebView").join("lockfile");
     for _ in 0..150 {
@@ -333,9 +338,11 @@ pub fn wait_previous(pid: Option<u32>, from: &Path, progress: &Progress) -> Resu
         }
     }
     log::warn!("WebView2 15 秒内没有释放原数据目录");
-    Err(Failure::new(
+    Err(Failure::new(trs!(
         "原数据目录仍被其他程序占用，请关闭所有 Rummage 窗口后再重新启动 Rummage。",
-    ))
+        "다른 프로그램이 아직 이전 데이터 폴더를 사용하고 있습니다. Rummage 창을 모두 닫은 뒤 Rummage를 다시 시작하십시오.",
+        "Another program is still using the previous data folder. Close all Rummage windows, then restart Rummage."
+    )))
 }
 
 /// 迁移期间独占打开锁文件，关闭时自动删除；已被其他实例打开时为 None
@@ -439,8 +446,10 @@ unsafe extern "system" fn callback(
             let permille = (done.min(total) * 1000 / total) as usize;
             // SAFETY: 同上
             unsafe { SendMessageW(hwnd, TDM_SET_PROGRESS_BAR_POS as u32, permille, 0) };
-            let text = format!(
+            let text = tr!(
                 "已复制 {} / {}（{}%）",
+                "{} / {} 복사됨 ({}%)",
+                "Copied {} / {} ({}%)",
                 size(done),
                 size(total),
                 permille / 10
@@ -459,7 +468,7 @@ unsafe extern "system" fn callback(
                 .compare_exchange(0, 1, Ordering::AcqRel, Ordering::Relaxed)
                 .is_ok()
             {
-                set_content(hwnd, "正在取消");
+                set_content(hwnd, trs!("正在取消", "취소하는 중", "Canceling"));
             }
             return S_FALSE;
         }
@@ -474,9 +483,17 @@ pub fn show_progress(progress: &Progress) {
         return;
     };
     let title = wide(TITLE);
-    let heading = wide("正在更改数据目录");
-    let content = wide("正在准备");
-    let footer = wide("完成后自动打开。");
+    let heading = wide(trs!(
+        "正在更改数据目录",
+        "데이터 폴더 변경 중",
+        "Changing the data folder"
+    ));
+    let content = wide(trs!("正在准备", "준비 중", "Preparing"));
+    let footer = wide(trs!(
+        "完成后自动打开。",
+        "끝나면 자동으로 열립니다.",
+        "Rummage opens automatically when done."
+    ));
     let config = TASKDIALOGCONFIG {
         cbSize: size_of::<TASKDIALOGCONFIG>() as u32,
         dwFlags: TDF_SHOW_PROGRESS_BAR | TDF_CALLBACK_TIMER,

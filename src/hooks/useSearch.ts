@@ -4,6 +4,7 @@ import type { ImageQuery, SearchResults, SimilarQuery } from '../types'
 import { errorMessage } from '../lib/errors'
 import { toSearchFilter, type Filters } from '../lib/filter'
 import { isTauri } from '../lib/platform'
+import { t } from '../lib/i18n'
 
 /** 输入停止后多久自动搜索 */
 const DEBOUNCE_MS = 250
@@ -58,7 +59,7 @@ export function useSearch(text: string, note: string, image: ImageQuery | null, 
           if (id !== seq.current) return
           console.warn('搜索失败：', err)
           setResults(null)
-          setError(errorMessage(err, '搜索失败，请稍后再试。'))
+          setError(errorMessage(err, t('搜索失败，请稍后再试。')))
         })
         .finally(() => {
           if (id === seq.current) setLoading(false)

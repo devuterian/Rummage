@@ -58,6 +58,9 @@ pub(crate) const WINDOW_STATE: StateFlags = StateFlags::all().difference(StateFl
 pub fn run() {
     // 检查更新（releases、update）用的 rustls 需要进程默认的 ring 加密实现
     rummage_core::models::install_crypto();
+    // 数据目录对话框与连上核心前的托盘菜单先按系统语言显示，连上核心后改用外观设置中的语言（见 `core`）
+    #[cfg(windows)]
+    rummage_proto::i18n::set_lang(platform::system_lang());
     // 日志和 WebView2 都使用数据目录，需最先确定；有待迁移的更改时在此完成迁移，
     // 指向的目录无法使用时在创建窗口前询问用户。Android 上为应用私有目录，同时初始化 TLS
     #[cfg(not(target_os = "android"))]

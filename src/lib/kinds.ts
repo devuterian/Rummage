@@ -35,7 +35,8 @@ export function needsMmproj(kinds: Kinds) {
 
 /**
  * 视频识别方式，对应参数 `video_preset` 的三个预设；相对耗时与代价同参数表的说明一致。
- * `windowS`、`frames` 为每段视频的秒数与帧数，与 rummage-core `pipeline::VIDEO_PRESETS` 一致，预估索引时间用
+ * `windowS`、`frames` 为每段视频的秒数与帧数，与 rummage-core `pipeline::VIDEO_PRESETS` 一致，预估索引时间用。
+ * `title`、`desc` 为中文原文，显示时用 `t()` 翻译
  */
 export const VIDEO_PRESETS = [
   { value: 1, title: '找物体', desc: '找画面里出现过的人和东西，定位最准，用时最短', windowS: 2, frames: 2 },

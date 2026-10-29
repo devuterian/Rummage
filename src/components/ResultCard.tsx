@@ -3,6 +3,7 @@ import type { SearchHit } from '../types'
 import type { CardBox } from '../lib/masonry'
 import { CAPTION_HEIGHT, hasThumb } from '../lib/masonry'
 import { abbreviateDir, kindLabel, locatorText, matchPercent, matchText } from '../lib/format'
+import { t } from '../lib/i18n'
 import { hitEmbed, hitImageUrl, hitRegion, thumbUrl } from '../lib/media'
 import { CloudIcon, KindIcon, SimilarIcon, UnplugIcon } from './icons'
 import { HoverTip } from './Tip'
@@ -13,7 +14,7 @@ function Flags({ hit }: { hit: SearchHit }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur-sm">
       {hit.offline ? <UnplugIcon className="h-3 w-3" /> : <CloudIcon className="h-3 w-3" />}
-      {hit.missing ? '找不到文件夹' : hit.offline ? '设备未连接' : '仅在云端'}
+      {hit.missing ? t('找不到文件夹') : hit.offline ? t('设备未连接') : t('仅在云端')}
     </span>
   )
 }
@@ -34,7 +35,7 @@ function SimilarButton({ kind, onClick, className }: { kind: string; onClick: ()
     <button
       type="button"
       tabIndex={-1}
-      aria-label="找相似"
+      aria-label={t('找相似')}
       onClick={(e) => {
         e.stopPropagation()
         onClick()
@@ -43,7 +44,7 @@ function SimilarButton({ kind, onClick, className }: { kind: string; onClick: ()
       className={`absolute rounded-full bg-white/90 p-1.5 text-gray-500 opacity-0 shadow-sm backdrop-blur-sm transition duration-200 hover:text-blue-500 group-hover:opacity-100 dark:bg-gray-900/90 dark:text-gray-400 dark:hover:text-blue-400 ${className}`}
     >
       <SimilarIcon kind={kind} className="h-4 w-4" />
-      <HoverTip label="找相似" />
+      <HoverTip label={t('找相似')} />
     </button>
   )
 }

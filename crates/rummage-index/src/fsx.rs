@@ -23,11 +23,26 @@ const FILE_SYSTEMS: &[&str] = &["NTFS", "ReFS", "exFAT", "FAT32", "FAT"];
 /// 消息都是能直接展示给用户的中文整句
 #[derive(Debug, thiserror::Error)]
 pub enum FsError {
-    #[error("\"{0}\" 仅在云端，尚未下载到本机，不能读取内容。")]
+    #[error("{}", rummage_proto::tr!(
+        "\"{}\" 仅在云端，尚未下载到本机，不能读取内容。",
+        "\"{}\"는 온라인 전용 파일이라 이 기기에 다운로드되지 않아 내용을 읽을 수 없습니다.",
+        "\"{}\" is an online-only file that hasn't been downloaded to this device, so its content can't be read.",
+        .0
+    ))]
     Placeholder(String),
-    #[error("不支持索引这个位置：{path}（{reason}），请选择本机磁盘上的文件夹。")]
+    #[error("{}", rummage_proto::tr!(
+        "不支持索引这个位置：{}（{}），请选择本机磁盘上的文件夹。",
+        "이 위치는 색인할 수 없습니다: {} ({}). 이 기기의 디스크에 있는 폴더를 선택하십시오.",
+        "This location can't be indexed: {} ({}). Choose a folder on a local disk.",
+        .path, .reason
+    ))]
     Unsupported { path: String, reason: String },
-    #[error("无法访问 \"{0}\"，请确认该位置存在且可以打开。")]
+    #[error("{}", rummage_proto::tr!(
+        "无法访问 \"{}\"，请确认该位置存在且可以打开。",
+        "\"{}\"에 접근할 수 없습니다. 이 위치가 있고 열 수 있는지 확인하십시오.",
+        "Can't access \"{}\". Make sure the location exists and can be opened.",
+        .0
+    ))]
     Inaccessible(String),
 }
 
@@ -55,10 +70,26 @@ pub fn io_kind(err: &std::io::Error) -> IoCause {
 /// 读取文件出错时给用户看的原因（整句）；系统错误码等细节由调用方写日志
 pub fn io_cause(err: &std::io::Error) -> &'static str {
     match io_kind(err) {
-        IoCause::Busy => "文件正被其他程序占用。",
-        IoCause::NotFound => "找不到该文件，它可能已被移动或删除。",
-        IoCause::Denied => "没有读取权限。",
-        IoCause::Other => "请确认它存在且可以打开。",
+        IoCause::Busy => rummage_proto::trs!(
+            "文件正被其他程序占用。",
+            "다른 프로그램이 파일을 사용하고 있습니다.",
+            "The file is in use by another program."
+        ),
+        IoCause::NotFound => rummage_proto::trs!(
+            "找不到该文件，它可能已被移动或删除。",
+            "파일을 찾을 수 없습니다. 옮겨졌거나 삭제되었을 수 있습니다.",
+            "The file can't be found. It may have been moved or deleted."
+        ),
+        IoCause::Denied => rummage_proto::trs!(
+            "没有读取权限。",
+            "읽기 권한이 없습니다.",
+            "No permission to read it."
+        ),
+        IoCause::Other => rummage_proto::trs!(
+            "请确认它存在且可以打开。",
+            "파일이 있고 열 수 있는지 확인하십시오.",
+            "Make sure it exists and can be opened."
+        ),
     }
 }
 
@@ -93,21 +124,41 @@ pub fn check_volume(path: &Path) -> Result<(), FsError> {
     if let Some(Component::Prefix(p)) = path.components().next()
         && matches!(p.kind(), Prefix::UNC(..) | Prefix::VerbatimUNC(..))
     {
-        return Err(unsupported("网络位置".into()));
+        return Err(unsupported(rummage_proto::tr!(
+            "网络位置",
+            "네트워크 위치",
+            "network location"
+        )));
     }
     let (kind, fs) = platform::volume(path).map_err(|err| {
         log::warn!("无法读取 {} 所在卷的信息：{err}", path.display());
         FsError::Inaccessible(shown(path))
     })?;
     if kind == platform::DRIVE_REMOTE {
-        return Err(unsupported("网络驱动器".into()));
+        return Err(unsupported(rummage_proto::tr!(
+            "网络驱动器",
+            "네트워크 드라이브",
+            "network drive"
+        )));
     }
     if kind != platform::DRIVE_FIXED && kind != platform::DRIVE_REMOVABLE {
-        return Err(unsupported("不是本地磁盘或可移动磁盘".into()));
+        return Err(unsupported(rummage_proto::tr!(
+            "不是本地磁盘或可移动磁盘",
+            "로컬 디스크나 이동식 디스크가 아님",
+            "not a local or removable disk"
+        )));
     }
     if !FILE_SYSTEMS.iter().any(|f| f.eq_ignore_ascii_case(&fs)) {
-        let fs = if fs.is_empty() { "未知" } else { &fs };
-        return Err(unsupported(format!("该磁盘的格式（{fs}）不受支持")));
+        let fs = if fs.is_empty() {
+            rummage_proto::trs!("未知", "알 수 없음", "unknown")
+        } else {
+            &fs
+        };
+        return Err(unsupported(rummage_proto::tr!(
+            "该磁盘的格式（{fs}）不受支持",
+            "지원하지 않는 디스크 형식({fs})",
+            "unsupported disk format ({fs})"
+        )));
     }
     Ok(())
 }

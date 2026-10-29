@@ -4,6 +4,7 @@ import type { FolderFilter, RootInfo } from '../types'
 import { customLabel, folderScope, KIND_OPTIONS, TIME_OPTIONS, type Filters, type TimeRange } from '../lib/filter'
 import { errorMessage } from '../lib/errors'
 import { folderName } from '../lib/format'
+import { t } from '../lib/i18n'
 import { isTauri } from '../lib/platform'
 import { useCoreEvent } from '../hooks/useCoreEvent'
 import DateRangePopover from './DateRangePopover'
@@ -74,34 +75,34 @@ export default function FilterBar({ filters, onChange, refresh, connected }: Pro
     if (!root) return []
     return [folderName(e.rel || root.path)]
   })
-  const summary = names.length <= 2 ? names.join('、') : `${names.length} 个文件夹`
+  const summary = names.length <= 2 ? names.join(t('、')) : t('{n} 个文件夹', { n: names.length })
 
   const save = (next: FolderFilter) =>
     invoke('set_folder_filter', { custom: next.custom, entries: next.entries })
       .then(() => setFolder(next))
       .catch((err) => {
         console.warn('无法保存文件夹筛选：', err)
-        showToast(errorMessage(err, '无法保存文件夹筛选，请稍后再试'), 'error')
+        showToast(errorMessage(err, t('无法保存文件夹筛选，请稍后再试')), 'error')
       })
 
   const empty = loaded && !roots.length
 
   return (
-    <div role="group" aria-label="筛选" className="mt-2.5 flex flex-wrap items-center justify-center gap-2 px-1">
+    <div role="group" aria-label={t('筛选')} className="mt-2.5 flex flex-wrap items-center justify-center gap-2 px-1">
       <div className={SELECT_WIDTH}>
         <MultiSelect
-          label="类型"
+          label={t('类型')}
           values={filters.kinds}
           onChange={(kinds) => onChange({ ...filters, kinds })}
-          options={KIND_OPTIONS.map((o) => ({ label: o.label, value: o.kind }))}
-          allText="全部类型"
-          unit="种类型"
-          tip="只勾选要找的文件类型，匹配更准"
+          options={KIND_OPTIONS.map((o) => ({ label: t(o.label), value: o.kind }))}
+          allText={t('全部类型')}
+          unit={t('种类型')}
+          tip={t('只勾选要找的文件类型，匹配更准')}
         />
       </div>
       <div className={SELECT_WIDTH}>
         <Select<'all' | 'custom'>
-          label="文件夹"
+          label={t('文件夹')}
           value={custom ? 'custom' : 'all'}
           onChange={(v) => {
             if (v === 'all') {
@@ -113,11 +114,11 @@ export default function FilterBar({ filters, onChange, refresh, connected }: Pro
             else save({ custom: true, entries: folder.entries })
           }}
           options={[
-            { label: '全部文件夹', value: 'all' },
-            { label: '自定义', value: 'custom', display: summary || '自定义', action: { label: '选择文件夹', icon: <FilterIcon className="h-3.5 w-3.5" />, onClick: () => setPicking(true) } },
+            { label: t('全部文件夹'), value: 'all' },
+            { label: t('自定义'), value: 'custom', display: summary || t('自定义'), action: { label: t('选择文件夹'), icon: <FilterIcon className="h-3.5 w-3.5" />, onClick: () => setPicking(true) } },
           ]}
           disabled={empty}
-          tip={empty ? '还没有添加文件夹' : undefined}
+          tip={empty ? t('还没有添加文件夹') : undefined}
         />
         {picking && (
           <FolderFilterDialog
@@ -134,14 +135,14 @@ export default function FilterBar({ filters, onChange, refresh, connected }: Pro
       {/* 自定义范围比其他选项长，按内容定宽 */}
       <div className="relative min-w-32">
         <Select<TimeRange>
-          label="修改时间"
+          label={t('修改时间')}
           value={filters.time}
           // 选项右侧的按钮键盘够不到：已选自定义时再选一次也打开弹出层
           onChange={(time) => (time === 'custom' && (!range || filters.time === 'custom') ? setEditing(true) : onChange({ ...filters, time }))}
           options={TIME_OPTIONS.map((o) =>
             o.value === 'custom'
-              ? { label: o.label, value: o.value, display: range || o.label, action: { label: '选择起止日期', icon: <FilterIcon className="h-3.5 w-3.5" />, onClick: () => setEditing(true) } }
-              : { label: o.label, value: o.value },
+              ? { label: t(o.label), value: o.value, display: range || t(o.label), action: { label: t('选择起止日期'), icon: <FilterIcon className="h-3.5 w-3.5" />, onClick: () => setEditing(true) } }
+              : { label: t(o.label), value: o.value },
           )}
         />
         {editing && (

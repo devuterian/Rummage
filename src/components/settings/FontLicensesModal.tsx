@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useEscape } from '../../hooks/useEscape'
+import { t } from '../../lib/i18n'
 import { CloseIcon } from '../icons'
 
 /** 第三方许可清单（npm run notices 生成）。Esc 或点遮罩关闭 */
@@ -30,12 +31,12 @@ export default function FontLicensesModal({ onClose }: { onClose: () => void }) 
       >
         <div className="shrink-0 p-6 pb-2">
           <div className="flex items-center justify-between gap-4">
-            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">第三方许可</h3>
+            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">{t('第三方许可')}</h3>
             <button
               type="button"
               onClick={onClose}
               className="shrink-0 rounded-full p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
-              aria-label="关闭"
+              aria-label={t('关闭')}
             >
               <CloseIcon className="h-5 w-5" />
             </button>
@@ -44,7 +45,7 @@ export default function FontLicensesModal({ onClose }: { onClose: () => void }) 
 
         <div className="flex-1 overflow-y-auto px-6 pb-6 pt-2 min-h-0">
           {text === null ? (
-            <div className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">{failed ? '许可清单加载失败' : '正在加载'}</div>
+            <div className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">{failed ? t('许可清单加载失败') : t('正在加载')}</div>
           ) : (
             <pre
               data-selectable-text

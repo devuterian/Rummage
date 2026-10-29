@@ -13,7 +13,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use rummage_core::proxy::Route;
-use rummage_proto::ApiError;
+use rummage_proto::{ApiError, tr, trs};
 use semver::Version;
 use sha2::{Digest, Sha256};
 use tauri::ipc::Channel;
@@ -70,22 +70,67 @@ fn save(dir: &Path, version: &str, bytes: &[u8]) -> io::Result<()> {
 fn install_error(err: Error) -> ApiError {
     let Error::Io(err) = err else {
         return match err {
-            Error::InvalidUpdaterFormat | Error::BinaryNotFoundInArchive => {
-                error(UPDATE, "安装包格式无效，请重新下载。")
-            }
-            err => error(UPDATE, format!("安装更新失败：{err}")),
+            Error::InvalidUpdaterFormat | Error::BinaryNotFoundInArchive => error(
+                UPDATE,
+                trs!(
+                    "安装包格式无效，请重新下载。",
+                    "설치 파일 형식이 잘못되었습니다. 다시 다운로드하십시오.",
+                    "The installer format is invalid. Download it again."
+                ),
+            ),
+            err => error(
+                UPDATE,
+                tr!(
+                    "安装更新失败：{err}",
+                    "업데이트를 설치하지 못했습니다: {err}",
+                    "Failed to install the update: {err}"
+                ),
+            ),
         };
     };
     if is_locked(&err) {
-        return error(UPDATE, "安装程序文件被占用，请稍后重试。");
+        return error(
+            UPDATE,
+            trs!(
+                "安装程序文件被占用，请稍后重试。",
+                "설치 프로그램 파일을 다른 프로그램이 사용 중입니다. 잠시 후 다시 시도하십시오.",
+                "The installer file is in use. Try again later."
+            ),
+        );
     }
     match err.kind() {
-        ErrorKind::StorageFull => error(UPDATE, "磁盘空间不足，无法写入安装程序。"),
-        ErrorKind::PermissionDenied => {
-            error(UPDATE, "没有权限写入或启动安装程序，可能被安全软件拦截。")
-        }
-        ErrorKind::NotFound => error(UPDATE, "找不到安装程序，可能被安全软件删除，请重新下载。"),
-        _ => error(UPDATE, format!("安装更新失败：{err}")),
+        ErrorKind::StorageFull => error(
+            UPDATE,
+            trs!(
+                "磁盘空间不足，无法写入安装程序。",
+                "디스크 공간이 부족해 설치 프로그램을 쓸 수 없습니다.",
+                "Not enough disk space to write the installer."
+            ),
+        ),
+        ErrorKind::PermissionDenied => error(
+            UPDATE,
+            trs!(
+                "没有权限写入或启动安装程序，可能被安全软件拦截。",
+                "설치 프로그램을 쓰거나 실행할 권한이 없습니다. 보안 프로그램이 막았을 수 있습니다.",
+                "No permission to write or run the installer. Security software may have blocked it."
+            ),
+        ),
+        ErrorKind::NotFound => error(
+            UPDATE,
+            trs!(
+                "找不到安装程序，可能被安全软件删除，请重新下载。",
+                "설치 프로그램을 찾을 수 없습니다. 보안 프로그램이 삭제했을 수 있으니 다시 다운로드하십시오.",
+                "Couldn't find the installer. Security software may have deleted it. Download it again."
+            ),
+        ),
+        _ => error(
+            UPDATE,
+            tr!(
+                "安装更新失败：{err}",
+                "업데이트를 설치하지 못했습니다: {err}",
+                "Failed to install the update: {err}"
+            ),
+        ),
     }
 }
 
@@ -138,7 +183,16 @@ async fn check<R: Runtime>(app: &AppHandle<R>, any: bool) -> Result<Update, ApiE
     #[cfg(debug_assertions)]
     let builder = match std::env::var("RUMMAGE_UPDATER_ENDPOINT") {
         Ok(url) => {
-            let invalid = |err: String| error(UPDATE, format!("更新源地址无效：{err}"));
+            let invalid = |err: String| {
+                error(
+                    UPDATE,
+                    tr!(
+                        "更新源地址无效：{err}",
+                        "업데이트 주소가 잘못되었습니다: {err}",
+                        "Invalid update endpoint: {err}"
+                    ),
+                )
+            };
             let url = reqwest::Url::parse(&url).map_err(|err| invalid(err.to_string()))?;
             builder
                 .endpoints(vec![url])
@@ -146,21 +200,61 @@ async fn check<R: Runtime>(app: &AppHandle<R>, any: bool) -> Result<Update, ApiE
         }
         Err(_) => builder,
     };
-    let updater = builder
-        .build()
-        .map_err(|err| error(UPDATE, format!("初始化更新失败：{err}")))?;
+    let updater = builder.build().map_err(|err| {
+        error(
+            UPDATE,
+            tr!(
+                "初始化更新失败：{err}",
+                "업데이트를 준비하지 못했습니다: {err}",
+                "Failed to initialize the updater: {err}"
+            ),
+        )
+    })?;
     match updater.check().await {
         Ok(Some(update)) => Ok(update),
-        Ok(None) => Err(error(UPDATE, "更新源中暂无新的版本。")),
-        Err(Error::ReleaseNotFound) => Err(error(UPDATE, "未找到更新包信息。")),
-        Err(Error::TargetNotFound(_) | Error::TargetsNotFound(_)) => {
-            Err(error(UPDATE, "更新包信息中没有适用于当前系统的安装包。"))
-        }
+        Ok(None) => Err(error(
+            UPDATE,
+            trs!(
+                "更新源中暂无新的版本。",
+                "업데이트 서버에 새 버전이 아직 없습니다.",
+                "No new version is available from the update source yet."
+            ),
+        )),
+        Err(Error::ReleaseNotFound) => Err(error(
+            UPDATE,
+            trs!(
+                "未找到更新包信息。",
+                "업데이트 정보를 찾을 수 없습니다.",
+                "Update information not found."
+            ),
+        )),
+        Err(Error::TargetNotFound(_) | Error::TargetsNotFound(_)) => Err(error(
+            UPDATE,
+            trs!(
+                "更新包信息中没有适用于当前系统的安装包。",
+                "업데이트 정보에 이 시스템용 설치 파일이 없습니다.",
+                "The update information has no installer for this system."
+            ),
+        )),
         Err(err @ (Error::Reqwest(_) | Error::Network(_))) => {
             log::warn!("检查更新包失败：{err}");
-            Err(error(NETWORK, "网络连接失败，请检查网络和代理设置后重试。"))
+            Err(error(
+                NETWORK,
+                trs!(
+                    "网络连接失败，请检查网络和代理设置后重试。",
+                    "네트워크에 연결하지 못했습니다. 네트워크와 프록시 설정을 확인한 뒤 다시 시도하십시오.",
+                    "Network connection failed. Check your network and proxy settings, then try again."
+                ),
+            ))
         }
-        Err(err) => Err(error(UPDATE, format!("检查更新包失败：{err}"))),
+        Err(err) => Err(error(
+            UPDATE,
+            tr!(
+                "检查更新包失败：{err}",
+                "업데이트를 확인하지 못했습니다: {err}",
+                "Failed to check for the update package: {err}"
+            ),
+        )),
     }
 }
 
@@ -176,7 +270,16 @@ pub async fn update_ready<R: Runtime>(app: AppHandle<R>) -> Result<Option<String
         read_saved(&dir, &current).map(|(meta, _)| meta.version)
     })
     .await
-    .map_err(|err| error(ApiError::INTERNAL, format!("校验更新包异常结束：{err}")))
+    .map_err(|err| {
+        error(
+            ApiError::INTERNAL,
+            tr!(
+                "校验更新包异常结束：{err}",
+                "업데이트 파일 검사가 비정상적으로 끝났습니다: {err}",
+                "Verifying the update package ended unexpectedly: {err}"
+            ),
+        )
+    })
 }
 
 /// 下载 version 对应的更新包并保存（覆盖旧包），下载进度经 on_progress 传给前端。
@@ -190,7 +293,14 @@ pub async fn update_download<R: Runtime>(
     let _busy = acquire()?;
     let mut update = check(&app, false).await?;
     if parse_version(&update.version) != parse_version(&version) {
-        return Err(error(UPDATE, "更新包信息尚未同步到最新版本，请稍后重试。"));
+        return Err(error(
+            UPDATE,
+            trs!(
+                "更新包信息尚未同步到最新版本，请稍后重试。",
+                "업데이트 정보가 아직 최신 버전으로 갱신되지 않았습니다. 잠시 후 다시 시도하십시오.",
+                "The update information hasn't caught up with the latest version yet. Try again later."
+            ),
+        ));
     }
     // 插件下载默认不设超时，网络卡住时按钮会一直停在下载中
     update.timeout = Some(Duration::from_secs(600));
@@ -214,24 +324,33 @@ pub async fn update_download<R: Runtime>(
             log::warn!("下载更新包失败：{err}");
             match err {
                 Error::Reqwest(err) if err.is_timeout() => {
-                    error(NETWORK, "下载更新包超时，请重试。")
+                    error(NETWORK, trs!("下载更新包超时，请重试。", "업데이트 다운로드 시간이 초과되었습니다. 다시 시도하십시오.", "Downloading the update timed out. Try again."))
                 }
                 Error::Reqwest(_) | Error::Network(_) => {
-                    error(NETWORK, "网络连接失败，请检查网络和代理设置后重试。")
+                    error(NETWORK, trs!("网络连接失败，请检查网络和代理设置后重试。", "네트워크에 연결하지 못했습니다. 네트워크와 프록시 설정을 확인한 뒤 다시 시도하십시오.", "Network connection failed. Check your network and proxy settings, then try again."))
                 }
                 Error::Minisign(_)
                 | Error::Base64(_)
                 | Error::SignatureUtf8(_)
                 | Error::MissingSignedVersion
-                | Error::SignedVersionMismatch { .. } => error(UPDATE, "更新包签名校验失败。"),
-                err => error(UPDATE, format!("下载更新包失败：{err}")),
+                | Error::SignedVersionMismatch { .. } => error(UPDATE, trs!("更新包签名校验失败。", "업데이트 파일의 서명을 확인하지 못했습니다.", "The update package signature verification failed.")),
+                err => error(UPDATE, tr!("下载更新包失败：{err}", "업데이트를 다운로드하지 못했습니다: {err}", "Failed to download the update: {err}")),
             }
         })?;
     let dir = updates_dir(&app)?;
     let saved = update.version.clone();
     tauri::async_runtime::spawn_blocking(move || save(&dir, &saved, &bytes))
         .await
-        .map_err(|err| error(ApiError::INTERNAL, format!("保存更新包异常结束：{err}")))?
+        .map_err(|err| {
+            error(
+                ApiError::INTERNAL,
+                tr!(
+                    "保存更新包异常结束：{err}",
+                    "업데이트 파일 저장이 비정상적으로 끝났습니다: {err}",
+                    "Saving the update package ended unexpectedly: {err}"
+                ),
+            )
+        })?
         .map_err(|err| {
             log::warn!("保存更新包失败：{err}");
             save_error(err)
@@ -251,8 +370,26 @@ pub async fn update_install<R: Runtime>(app: AppHandle<R>) -> Result<(), ApiErro
     let current = app.package_info().version.clone();
     let (meta, bytes) = tauri::async_runtime::spawn_blocking(move || read_saved(&dir, &current))
         .await
-        .map_err(|err| error(ApiError::INTERNAL, format!("校验更新包异常结束：{err}")))?
-        .ok_or_else(|| error(UPDATE, "本地安装包已失效，请重新下载。"))?;
+        .map_err(|err| {
+            error(
+                ApiError::INTERNAL,
+                tr!(
+                    "校验更新包异常结束：{err}",
+                    "업데이트 파일 검사가 비정상적으로 끝났습니다: {err}",
+                    "Verifying the update package ended unexpectedly: {err}"
+                ),
+            )
+        })?
+        .ok_or_else(|| {
+            error(
+                UPDATE,
+                trs!(
+                    "本地安装包已失效，请重新下载。",
+                    "받아 둔 설치 파일을 더 이상 쓸 수 없습니다. 다시 다운로드하십시오.",
+                    "The downloaded installer is no longer valid. Download it again."
+                ),
+            )
+        })?;
     let cached = DOWNLOADED
         .lock()
         .expect(LOCK)
@@ -276,7 +413,16 @@ pub async fn update_install<R: Runtime>(app: AppHandle<R>) -> Result<(), ApiErro
     core::shutdown(&app).await;
     let result = tauri::async_runtime::spawn_blocking(move || update.install(bytes))
         .await
-        .map_err(|err| error(ApiError::INTERNAL, format!("安装更新异常结束：{err}")))
+        .map_err(|err| {
+            error(
+                ApiError::INTERNAL,
+                tr!(
+                    "安装更新异常结束：{err}",
+                    "업데이트 설치가 비정상적으로 끝났습니다: {err}",
+                    "Installing the update ended unexpectedly: {err}"
+                ),
+            )
+        })
         .and_then(|res| {
             res.map_err(|err| {
                 log::warn!("安装更新失败：{err}");

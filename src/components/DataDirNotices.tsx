@@ -5,6 +5,7 @@ import { isTauri } from '../lib/platform'
 import ConfirmDialog from './ConfirmDialog'
 import PathBox from './PathBox'
 import { showToast } from './Toast'
+import { t } from '../lib/i18n'
 
 /**
  * 启动时确定数据目录的结果，前端加载后取一次。
@@ -31,7 +32,7 @@ export default function DataDirNotices() {
   return (
     <>
       {cur && (
-        <ConfirmDialog title={cur.title} message={cur.message} confirmText="知道了" hideCancel onConfirm={next} onCancel={next}>
+        <ConfirmDialog title={cur.title} message={cur.message} confirmText={t('知道了')} hideCancel onConfirm={next} onCancel={next}>
           {(cur.paths.length > 0 || cur.details.length > 0) && (
             <div className="space-y-3">
               {cur.paths.length > 0 && <PathBox rows={cur.paths} />}

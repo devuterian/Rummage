@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import type { CoreStatus, ParamValues, RootInfo, SetupStatus } from '../../types'
 import { errorMessage } from '../../lib/errors'
+import { t } from '../../lib/i18n'
 import { KIND_PARAMS, type Kinds, kindsOf, needsMmproj } from '../../lib/kinds'
 import { selftestText } from '../../lib/device'
 import { isAndroid } from '../../lib/platform'
@@ -65,7 +66,7 @@ export default function Onboarding({ status, coreStatus, onStatus, onDone }: Pro
       })
       .catch((err) => {
         console.warn('无法读取参数：', err)
-        setParamsError(errorMessage(err, '无法读取设置，请稍后再试。'))
+        setParamsError(errorMessage(err, t('无法读取设置，请稍后再试。')))
       })
   }, [])
 
@@ -75,7 +76,7 @@ export default function Onboarding({ status, coreStatus, onStatus, onDone }: Pro
   const importBlocked = storage.granted === false
   const importConfig = () => {
     if (importBlocked) {
-      showToast('请先授予“所有文件访问”权限')
+      showToast(t('请先授予“所有文件访问”权限'))
       return
     }
     config.start()
@@ -104,7 +105,7 @@ export default function Onboarding({ status, coreStatus, onStatus, onDone }: Pro
         console.warn('无法保存文件类型：', err)
         // 只回滚这一项：期间可能又切换了别的类型
         setKinds((k) => k && { ...k, [key]: !on })
-        showToast(errorMessage(err, '设置未能保存，请重试。'), 'error')
+        showToast(errorMessage(err, t('设置未能保存，请重试。')), 'error')
       })
   }
 
@@ -116,7 +117,7 @@ export default function Onboarding({ status, coreStatus, onStatus, onDone }: Pro
       .catch((err) => {
         console.warn('无法保存视频识别方式：', err)
         setPreset(prev)
-        showToast(errorMessage(err, '设置未能保存，请重试。'), 'error')
+        showToast(errorMessage(err, t('设置未能保存，请重试。')), 'error')
       })
   }
 
@@ -127,45 +128,45 @@ export default function Onboarding({ status, coreStatus, onStatus, onDone }: Pro
   const verifyPending = status.task?.kind === 'verify' && (status.task.state === 'running' || status.task.state === 'done')
   // Android：只要一个模型
   const androidModel = !reqFile.ready
-    ? '请先下载或导入模型'
+    ? t('请先下载或导入模型')
     : reqFile.verified === false
-      ? `${required.label}校验未通过，请重新下载或导入`
+      ? t('{name}校验未通过，请重新下载或导入', { name: t(required.label) })
       : reqFile.verified !== true
         ? verifyPending
-          ? '请等待校验完成'
-          : '模型尚未通过校验，请重新校验'
+          ? t('请等待校验完成')
+          : t('模型尚未通过校验，请重新校验')
         : ''
   /** 第 `i` 步还缺的必需项；没有时为空串 */
   const blockerAt = (i: number) => [
-    rootCount === 0 ? '请先添加至少一个文件夹' : '',
-    kinds && !kinds.documents && !mmprojOn ? '请至少选择一种文件类型' : '',
+    rootCount === 0 ? t('请先添加至少一个文件夹') : '',
+    kinds && !kinds.documents && !mmprojOn ? t('请至少选择一种文件类型') : '',
     isAndroid
       ? androidModel
       : !status.model.ready
-      ? '请先下载或导入模型'
+      ? t('请先下载或导入模型')
       : status.model.verified === false
-        ? '文字模型校验未通过，请重新下载或导入'
+        ? t('文字模型校验未通过，请重新下载或导入')
         : mmprojOn && !status.mmproj.ready
-          ? '尚未下载图片与音视频模型。不需要识别图片、音频和视频时，可以返回上一步取消勾选。'
+          ? t('尚未下载图片与音视频模型。不需要识别图片、音频和视频时，可以返回上一步取消勾选。')
           : mmprojOn && status.mmproj.verified === false
-            ? '图片与音视频模型校验未通过，请重新下载或导入'
+            ? t('图片与音视频模型校验未通过，请重新下载或导入')
             : status.model.verified !== true || (mmprojOn && status.mmproj.verified !== true)
               ? verifyPending
-                ? '请等待校验完成'
-                : '模型尚未通过校验，请重新校验'
+                ? t('请等待校验完成')
+                : t('模型尚未通过校验，请重新校验')
               : '',
     st.running
-      ? '请等待检测完成'
+      ? t('请等待检测完成')
       : st.preferred === 'cpu'
         ? isAndroid && !status.model.ready
-          ? 'CPU 要用通用模型，请返回上一步下载'
+          ? t('CPU 要用通用模型，请返回上一步下载')
           : ''
         : !st.devices.length
-          ? '请开始检测，或选择只用 CPU'
+          ? t('请开始检测，或选择只用 CPU')
           : isAndroid && !st.devices.some((d) => d.status === 'passed')
             ? status.model.ready
-              ? '没有通过检测的设备，请重新检测'
-              : 'NPU 检测未通过，请返回上一步下载通用模型'
+              ? t('没有通过检测的设备，请重新检测')
+              : t('NPU 检测未通过，请返回上一步下载通用模型')
             : '',
     '',
   ][i]
@@ -190,7 +191,7 @@ export default function Onboarding({ status, coreStatus, onStatus, onDone }: Pro
       .then(onDone)
       .catch((err) => {
         console.warn('无法完成引导：', err)
-        showToast(errorMessage(err, '无法完成设置，请重试。'), 'error')
+        showToast(errorMessage(err, t('无法完成设置，请重试。')), 'error')
       })
       .finally(() => setFinishing(false))
   }
@@ -204,14 +205,14 @@ export default function Onboarding({ status, coreStatus, onStatus, onDone }: Pro
       {/* 状态栏的底色：页面滚动时内容不和状态栏图标叠在一起 */}
       <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-30 h-[var(--safe-top)] bg-gray-50/85 backdrop-blur-xl dark:bg-gray-950/85" />
       <div className="flex w-full max-w-xl flex-col">
-        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">欢迎使用 Rummage</h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">完成几项设置后，就能用文字或图片搜索本机文件。</p>
+        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">{t('欢迎使用 Rummage')}</h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('完成几项设置后，就能用文字或图片搜索本机文件。')}</p>
 
         <ol className="mt-6 flex items-center gap-1.5 text-xs">
           {STEPS.map((label, i) => (
             <li key={label} className="flex flex-1 flex-col gap-1.5">
               <div className={`h-1 rounded-full transition duration-200 ${step !== null && i <= step ? 'bg-blue-500' : 'bg-black/[0.06] dark:bg-white/[0.08]'}`} />
-              <span className={i === step ? 'font-medium text-gray-700 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500'}>{label}</span>
+              <span className={i === step ? 'font-medium text-gray-700 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500'}>{t(label)}</span>
             </li>
           ))}
         </ol>
@@ -238,18 +239,18 @@ export default function Onboarding({ status, coreStatus, onStatus, onDone }: Pro
           <footer className="mt-5 flex items-center gap-3 max-sm:sticky max-sm:bottom-0 max-sm:-mx-4 max-sm:mt-auto max-sm:bg-gray-50/85 max-sm:px-4 max-sm:pb-[calc(0.75rem+var(--safe-bottom))] max-sm:pt-5 max-sm:backdrop-blur-xl dark:max-sm:bg-gray-950/85">
             {step > 0 && (
               <button type="button" className={`shrink-0 ${BUTTON}`} disabled={!running} onClick={() => go(step - 1)}>
-                上一步
+                {t('上一步')}
               </button>
             )}
             {step === 0 && (
               <button type="button" className={`shrink-0 ${BUTTON} ${importBlocked ? 'cursor-not-allowed opacity-50' : ''}`} aria-disabled={importBlocked || undefined} disabled={!running || config.busy} onClick={importConfig}>
-                {config.busy ? '正在导入' : '导入配置'}
+                {config.busy ? t('正在导入') : t('导入配置')}
               </button>
             )}
             <span className="ml-auto min-w-0 text-right text-xs text-gray-400 dark:text-gray-500">{blocker}</span>
             {last ? (
               <button type="button" className={`shrink-0 ${PRIMARY_BUTTON}`} disabled={finishing || !running} onClick={finish}>
-                开始使用
+                {t('开始使用')}
               </button>
             ) : (
               <button
@@ -258,7 +259,7 @@ export default function Onboarding({ status, coreStatus, onStatus, onDone }: Pro
                 disabled={Boolean(blocker) || !kinds || !running}
                 onClick={() => go(step + 1)}
               >
-                下一步
+                {t('下一步')}
               </button>
             )}
           </footer>

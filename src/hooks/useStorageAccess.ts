@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { errorMessage } from '../lib/errors'
 import { isAndroid } from '../lib/platform'
 import { showToast } from '../components/Toast'
+import { t } from '../lib/i18n'
 
 /**
  * Android 的“所有文件访问”权限：读取一次，应用回到前台时再读一次（用户可能在系统设置中改过）。
@@ -36,7 +37,7 @@ export function useStorageAccess() {
       .then(setGranted)
       .catch((err) => {
         console.warn('无法打开授权页面：', err)
-        showToast(errorMessage(err, '无法打开授权页面'), 'error')
+        showToast(errorMessage(err, t('无法打开授权页面')), 'error')
       })
   }
 

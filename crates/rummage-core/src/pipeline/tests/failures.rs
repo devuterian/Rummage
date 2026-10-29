@@ -165,7 +165,7 @@ fn batch_write_failure_retried_per_file() {
     assert!(e.stored("good.txt"));
     let (stage, attempts, error) = e.job("bad.txt").unwrap();
     assert_eq!((stage.as_str(), attempts), ("failed", 3));
-    assert_eq!(error.as_deref(), Some(super::prep::reason::DB_REASON));
+    assert_eq!(error.as_deref(), Some(super::prep::reason::db_reason()));
     assert_eq!(e.count("SELECT COUNT(*) FROM blacklist"), 1);
 }
 

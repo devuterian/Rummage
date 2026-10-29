@@ -4,6 +4,7 @@ import type { SetupStatus } from '../types'
 import { errorMessage } from '../lib/errors'
 import { isTauri } from '../lib/platform'
 import { useCoreEvent } from './useCoreEvent'
+import { t } from '../lib/i18n'
 
 /**
  * 引导状态：核心连上时用 `setup_status` 取一次，之后跟随 `core-event` 中的 `ModelTask`、`Selftest` 更新对应部分。
@@ -21,7 +22,7 @@ export function useSetup(connected: boolean) {
       })
       .catch((err) => {
         console.warn('无法获取引导状态：', err)
-        setError(errorMessage(err, '无法读取设备与模型的状态，请重试。'))
+        setError(errorMessage(err, t('无法读取设备与模型的状态，请重试。')))
       })
   }, [])
 

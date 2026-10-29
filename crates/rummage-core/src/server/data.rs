@@ -15,7 +15,7 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
 use rummage_index::{FolderEntry, find_scope};
-use rummage_proto::{ApiError, FolderFilterEntry, FolderScope, Reply, Request, params};
+use rummage_proto::{ApiError, FolderFilterEntry, FolderScope, Reply, Request, params, tr};
 
 use super::files::{derived_dir, thumb_path};
 use super::setup::release_limit;
@@ -43,7 +43,11 @@ fn clear_index(state: &Arc<State>) -> Result<Reply, ApiError> {
             p.hold(Hold::Clear, false);
             return Err(api_error(
                 ApiError::BAD_REQUEST,
-                "还有文件正在处理，暂时无法清空索引，请稍后再试。",
+                tr!(
+                    "还有文件正在处理，暂时无法清空索引，请稍后再试。",
+                    "아직 처리 중인 파일이 있어 지금은 색인을 비울 수 없습니다. 잠시 후 다시 시도하십시오.",
+                    "Files are still being processed, so the index can't be cleared right now. Try again later."
+                ),
             ));
         }
     }

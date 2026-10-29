@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { TITLEBAR_HEIGHT } from '../lib/platform'
+import { t } from '../lib/i18n'
 
 const BUTTON = 'flex h-full w-[46px] items-center justify-center text-gray-500 transition-colors dark:text-gray-400'
 
@@ -33,15 +34,15 @@ export default function TitleBar() {
   return (
     <div className="fixed inset-x-0 top-0 z-[130] flex select-none" style={{ height: TITLEBAR_HEIGHT }}>
       <div data-tauri-drag-region className="flex-1" />
-      <button type="button" aria-label="最小化" className={`${BUTTON} hover:bg-black/[0.06] dark:hover:bg-white/[0.08]`} onClick={() => run('最小化窗口', () => getCurrentWindow().minimize())}>
+      <button type="button" aria-label={t('最小化')} className={`${BUTTON} hover:bg-black/[0.06] dark:hover:bg-white/[0.08]`} onClick={() => run('最小化窗口', () => getCurrentWindow().minimize())}>
         <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 5h10" stroke="currentColor" /></svg>
       </button>
-      <button type="button" aria-label={maximized ? '向下还原' : '最大化'} className={`${BUTTON} hover:bg-black/[0.06] dark:hover:bg-white/[0.08]`} onClick={() => run('切换最大化', () => getCurrentWindow().toggleMaximize())}>
+      <button type="button" aria-label={maximized ? t('向下还原') : t('最大化')} className={`${BUTTON} hover:bg-black/[0.06] dark:hover:bg-white/[0.08]`} onClick={() => run('切换最大化', () => getCurrentWindow().toggleMaximize())}>
         {maximized
           ? <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" aria-hidden="true"><path d="M2.5 2.5V.5h7v7h-2M.5 2.5h7v7h-7z" /></svg>
           : <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" aria-hidden="true"><path d="M.5.5h9v9h-9z" /></svg>}
       </button>
-      <button type="button" aria-label="关闭" className={`${BUTTON} hover:bg-[#c42b1c] hover:text-white dark:hover:text-white`} onClick={() => run('关闭窗口', () => getCurrentWindow().close())}>
+      <button type="button" aria-label={t('关闭')} className={`${BUTTON} hover:bg-[#c42b1c] hover:text-white dark:hover:text-white`} onClick={() => run('关闭窗口', () => getCurrentWindow().close())}>
         <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" /></svg>
       </button>
     </div>

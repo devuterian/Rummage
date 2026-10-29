@@ -4,6 +4,7 @@ import type { AgentClient, AgentInfo, AgentState, SkillTarget } from '../../type
 import { copyText } from '../../lib/clipboard'
 import { errorMessage } from '../../lib/errors'
 import { trimPeriod } from '../../lib/format'
+import { t } from '../../lib/i18n'
 import { CheckIcon, ClaudeCodeIcon, ClaudeIcon, CodexIcon, CopyIcon, CursorIcon, FolderIcon, OpenCodeIcon, VscodeIcon } from '../icons'
 import LoadError from '../LoadError'
 import { CARD, CARD_ROW, ICON_TILE, ROW_ACTIONS, ROW_ICON_BUTTON, ROW_ICON_TILE, ROW_LONG_TEXT, SMALL_BUTTON } from '../onboarding/styles'
@@ -72,10 +73,11 @@ function Row({ icon, title, path, note, warn, children }: { icon: ReactNode; tit
   )
 }
 
-const ADDED = (
+// 文字随界面语言，渲染时生成
+const ADDED = () => (
   <span className="mr-1 inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
     <CheckIcon className="h-3.5 w-3.5" />
-    已添加
+    {t('已添加')}
   </span>
 )
 
@@ -98,7 +100,7 @@ export default function AgentTab() {
       })
       .catch((err) => {
         console.warn('无法读取 AI 工具的配置：', err)
-        setLoadError(errorMessage(err, '无法读取 AI 工具的配置。'))
+        setLoadError(errorMessage(err, t('无法读取 AI 工具的配置。')))
       })
   }, [])
 
@@ -113,7 +115,7 @@ export default function AgentTab() {
       })
       .catch((err) => {
         console.warn(`${cmd} 失败：`, err)
-        showToast(trimPeriod(errorMessage(err, '操作失败，请重试。')), 'error')
+        showToast(trimPeriod(errorMessage(err, t('操作失败，请重试。'))), 'error')
       })
       .finally(() => setBusy(''))
   }
@@ -121,17 +123,17 @@ export default function AgentTab() {
   const copy = async (text: string) => {
     try {
       await copyText(text)
-      showToast('已复制配置', 'success')
+      showToast(t('已复制配置'), 'success')
     } catch (err) {
       console.warn(err)
-      showToast('复制失败', 'error')
+      showToast(t('复制失败'), 'error')
     }
   }
 
   const openDir = () => {
     invoke('open_skill_dir').catch((err) => {
       console.warn('打开 Skill 文件夹失败：', err)
-      showToast(trimPeriod(errorMessage(err, '无法打开 Skill 所在的文件夹。')), 'error')
+      showToast(trimPeriod(errorMessage(err, t('无法打开 Skill 所在的文件夹。'))), 'error')
     })
   }
 
@@ -139,9 +141,9 @@ export default function AgentTab() {
   if (!info) return null
 
   const note = (state: AgentState, invalid: string) => {
-    if (state === 'notFound') return { note: '未检测到，可复制配置手动添加' }
+    if (state === 'notFound') return { note: t('未检测到，可复制配置手动添加') }
     if (state === 'invalid') return { note: invalid, warn: true }
-    if (state === 'outdated') return { note: '与当前版本不一致，需要更新', warn: true }
+    if (state === 'outdated') return { note: t('与当前版本不一致，需要更新'), warn: true }
     return {}
   }
 
@@ -150,7 +152,7 @@ export default function AgentTab() {
       <section className="space-y-3">
         <div className="space-y-1">
           <h4 className={SECTION_TITLE}>MCP</h4>
-          <p className={ROW_DESC}>通过 MCP 让 AI 工具调用 Rummage 的语义搜索，按内容检索已索引的文件，并可将结果导出为 CSV、JSON 或路径列表，用于整理文件。</p>
+          <p className={ROW_DESC}>{t('通过 MCP 让 AI 工具调用 Rummage 的语义搜索，按内容检索已索引的文件，并可将结果导出为 CSV、JSON 或路径列表，用于整理文件。')}</p>
         </div>
         <div className={CARD}>
           {info.clients.map((c) => {
@@ -158,21 +160,21 @@ export default function AgentTab() {
             const Icon = CLIENT_ICON[c.id]
             const key = `mcp-${c.id}`
             return (
-              <Row key={c.id} icon={<Icon className="h-4 w-4" />} title={label} path={c.path} {...note(c.state, '配置文件无法解析，可复制配置手动添加')}>
-                {c.state === 'added' && ADDED}
+              <Row key={c.id} icon={<Icon className="h-4 w-4" />} title={label} path={c.path} {...note(c.state, t('配置文件无法解析，可复制配置手动添加'))}>
+                {c.state === 'added' && ADDED()}
                 {(c.state === 'absent' || c.state === 'outdated') && (
-                  <button type="button" className={SMALL_BUTTON} disabled={busy === key} onClick={() => act(key, 'mcp_add', { client: c.id }, `已添加，重新启动 ${label} 后生效`)}>
-                    {c.state === 'absent' ? '添加' : '更新'}
+                  <button type="button" className={SMALL_BUTTON} disabled={busy === key} onClick={() => act(key, 'mcp_add', { client: c.id }, t('已添加，重新启动 {name} 后生效', { name: label }))}>
+                    {c.state === 'absent' ? t('添加') : t('更新')}
                   </button>
                 )}
                 {(c.state === 'added' || c.state === 'outdated') && (
-                  <button type="button" className={SMALL_BUTTON} disabled={busy === key} onClick={() => act(key, 'mcp_remove', { client: c.id }, `已移除，重新启动 ${label} 后生效`)}>
-                    移除
+                  <button type="button" className={SMALL_BUTTON} disabled={busy === key} onClick={() => act(key, 'mcp_remove', { client: c.id }, t('已移除，重新启动 {name} 后生效', { name: label }))}>
+                    {t('移除')}
                   </button>
                 )}
-                <button type="button" className={ROW_ICON_BUTTON} aria-label="复制配置" onClick={() => copy(mcpConfig(c.id, info.coreExe))}>
+                <button type="button" className={ROW_ICON_BUTTON} aria-label={t('复制配置')} onClick={() => copy(mcpConfig(c.id, info.coreExe))}>
                   <CopyIcon className="h-4 w-4" />
-                  <HoverTip label="复制配置" />
+                  <HoverTip label={t('复制配置')} />
                 </button>
               </Row>
             )
@@ -183,30 +185,30 @@ export default function AgentTab() {
       <section className="space-y-3">
         <div className="space-y-1">
           <h4 className={SECTION_TITLE}>Skill</h4>
-          <p className={ROW_DESC}>Skill 为 AI 工具提供 Rummage 的使用说明，包括何时调用、如何检索与导出结果。Claude Code 读取「~\.claude\skills」，Codex 读取「~\.agents\skills」，Cursor、VS Code 与 OpenCode 两处都会读取，安装其中一处即可。</p>
+          <p className={ROW_DESC}>{t('Skill 为 AI 工具提供 Rummage 的使用说明，包括何时调用、如何检索与导出结果。Claude Code 读取「~\\.claude\\skills」，Codex 读取「~\\.agents\\skills」，Cursor、VS Code 与 OpenCode 两处都会读取，安装其中一处即可。')}</p>
         </div>
         <div className={CARD}>
           {info.skills.map((s) => {
             const key = `skill-${s.id}`
             return (
-              <Row key={s.id} icon={s.id === 'claude' ? <ClaudeCodeIcon className="h-4 w-4" /> : <CodexIcon className="h-4 w-4" />} title={SKILL_LABEL[s.id]} path={s.path} {...note(s.state, '此目录已有另一个名为 rummage 的 Skill')}>
-                {s.state === 'added' && ADDED}
+              <Row key={s.id} icon={s.id === 'claude' ? <ClaudeCodeIcon className="h-4 w-4" /> : <CodexIcon className="h-4 w-4" />} title={t(SKILL_LABEL[s.id])} path={s.path} {...note(s.state, t('此目录已有另一个名为 rummage 的 Skill'))}>
+                {s.state === 'added' && ADDED()}
                 {(s.state === 'absent' || s.state === 'outdated') && (
-                  <button type="button" className={SMALL_BUTTON} disabled={busy === key} onClick={() => act(key, 'skill_install', { target: s.id }, s.state === 'absent' ? '已安装' : '已更新')}>
-                    {s.state === 'absent' ? '安装' : '更新'}
+                  <button type="button" className={SMALL_BUTTON} disabled={busy === key} onClick={() => act(key, 'skill_install', { target: s.id }, s.state === 'absent' ? t('已安装') : t('已更新'))}>
+                    {s.state === 'absent' ? t('安装') : t('更新')}
                   </button>
                 )}
                 {(s.state === 'added' || s.state === 'outdated') && (
-                  <button type="button" className={SMALL_BUTTON} disabled={busy === key} onClick={() => act(key, 'skill_remove', { target: s.id }, '已移除')}>
-                    移除
+                  <button type="button" className={SMALL_BUTTON} disabled={busy === key} onClick={() => act(key, 'skill_remove', { target: s.id }, t('已移除'))}>
+                    {t('移除')}
                   </button>
                 )}
               </Row>
             )
           })}
-          <Row icon={<FolderIcon className="h-4 w-4" />} title="Skill 文件夹" path={info.skillDir}>
+          <Row icon={<FolderIcon className="h-4 w-4" />} title={t('Skill 文件夹')} path={info.skillDir}>
             <button type="button" className={SMALL_BUTTON} onClick={openDir}>
-              打开
+              {t('打开')}
             </button>
           </Row>
         </div>

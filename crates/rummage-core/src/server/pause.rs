@@ -12,7 +12,7 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use rummage_embed::selftest;
-use rummage_proto::{ApiError, PauseReason, Reply};
+use rummage_proto::{ApiError, PauseReason, Reply, tr};
 
 use super::{State, api_error, db, lock};
 use crate::resource::{self, MANUAL_KEY};
@@ -104,7 +104,11 @@ impl State {
                 log::error!("无法保存手动暂停：{err}");
                 api_error(
                     ApiError::UNAVAILABLE,
-                    "暂停设置未能保存：索引数据库写入失败，请检查磁盘空间后重试。",
+                    tr!(
+                        "暂停设置未能保存：索引数据库写入失败，请检查磁盘空间后重试。",
+                        "일시정지 설정을 저장하지 못했습니다. 색인 데이터베이스에 쓰지 못했으니 디스크 공간을 확인한 뒤 다시 시도하십시오.",
+                        "Couldn't save the pause setting: writing to the index database failed. Check the disk space, then try again."
+                    ),
                 )
             })?;
             *manual = pause;

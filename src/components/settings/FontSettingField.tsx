@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import type { FontMode } from '../../types'
 import { buildFontStack, getFontLabel, type FontSlot } from '../../lib/fonts'
 import { useBackLayer } from '../../hooks/useBackLayer'
+import { t } from '../../lib/i18n'
 import Select from '../Select'
 import { ROW_DESC, ROW_LABEL } from './styles'
 
@@ -93,7 +94,7 @@ export default function FontSettingField({ slot, label, description, mode, name,
           <Select
             value={mode}
             onChange={(m) => onChange(m, name)}
-            options={MODES.map((m) => (m === 'custom' ? { label: '自定义', value: m } : { label: getFontLabel(m), value: m, style: { fontFamily: buildFontStack(slot, m) } }))}
+            options={MODES.map((m) => (m === 'custom' ? { label: t('自定义'), value: m } : { label: t(getFontLabel(m)), value: m, style: { fontFamily: buildFontStack(slot, m) } }))}
           />
         </div>
       </div>
@@ -136,8 +137,8 @@ export default function FontSettingField({ slot, label, description, mode, name,
                 setActiveIdx(-1)
               }
             }}
-            placeholder="本机已安装的字体名称"
-            aria-label={`${label}名称`}
+            placeholder={t('本机已安装的字体名称')}
+            aria-label={t('{label}名称', { label })}
             role="combobox"
             aria-expanded={showList}
             aria-autocomplete="list"
@@ -178,7 +179,7 @@ export default function FontSettingField({ slot, label, description, mode, name,
         className="mb-1.5 rounded-xl bg-black/[0.02] px-3 py-2 [overflow-wrap:anywhere] text-sm text-gray-700 dark:bg-white/[0.03] dark:text-gray-200"
         style={{ fontFamily: buildFontStack(slot, mode, previewName) }}
       >
-        {PREVIEW_TEXT[slot]}
+        {t(PREVIEW_TEXT[slot])}
       </div>
       <div data-selectable-text className={ROW_DESC}>
         {description}

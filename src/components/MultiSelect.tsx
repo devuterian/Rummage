@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useClickOutside } from '../hooks/useClickOutside'
 import { useMenuPlacement } from '../hooks/useMenuPlacement'
+import { t } from '../lib/i18n'
 import { CheckIcon, ChevronDownIcon } from './icons'
 import { SELECT_CLASS } from './Select'
 import { HoverTip } from './Tip'
@@ -35,9 +36,9 @@ interface Props<T> {
  */
 export function summary(labels: string[], checked: string[], allText: string, unit: string) {
   if (checked.length === labels.length) return allText
-  if (checked.length <= 2) return checked.join('、')
-  if (checked.length === labels.length - 1) return `不含${labels.find((l) => !checked.includes(l))}`
-  return `${checked.length} ${unit}`
+  if (checked.length <= 2) return checked.join(t('、'))
+  if (checked.length === labels.length - 1) return t('不含{name}', { name: labels.find((l) => !checked.includes(l)) ?? '' })
+  return t('{n} {unit}', { n: checked.length, unit })
 }
 
 /**

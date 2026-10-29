@@ -63,7 +63,16 @@ pub async fn storage_access<R: Runtime>(app: AppHandle<R>) -> Result<bool, ApiEr
     app.state::<Android<R>>()
         .all_files_access()
         .await
-        .map_err(|err| failed("无法读取存储权限，请重试。", err))
+        .map_err(|err| {
+            failed(
+                rummage_proto::trs!(
+                    "无法读取存储权限，请重试。",
+                    "저장공간 권한을 읽을 수 없습니다. 다시 시도하십시오.",
+                    "Couldn't read the storage permission. Try again."
+                ),
+                err,
+            )
+        })
 }
 
 /// 打开系统的“所有文件访问”授权页面，用户返回后报告是否已授权
@@ -74,7 +83,7 @@ pub async fn request_storage_access<R: Runtime>(app: AppHandle<R>) -> Result<boo
         .await
         .map_err(|err| {
             failed(
-                "无法打开授权页面，请在系统设置中为 Rummage 开启“所有文件访问”权限。",
+                rummage_proto::trs!("无法打开授权页面，请在系统设置中为 Rummage 开启“所有文件访问”权限。", "권한 화면을 열 수 없습니다. 시스템 설정에서 Rummage에 ‘모든 파일 액세스’ 권한을 허용하십시오.", "Couldn't open the permission page. In system settings, turn on \"All files access\" for Rummage."),
                 err,
             )
         })
@@ -99,14 +108,27 @@ pub async fn add_root<R: Runtime>(app: AppHandle<R>) -> Result<Option<AddedRoot>
         .state::<Android<R>>()
         .pick_folder()
         .await
-        .map_err(|err| failed("无法打开文件夹选择器，请重试。", err))?;
+        .map_err(|err| {
+            failed(
+                rummage_proto::trs!(
+                    "无法打开文件夹选择器，请重试。",
+                    "폴더 선택기를 열 수 없습니다. 다시 시도하십시오.",
+                    "Couldn't open the folder picker. Try again."
+                ),
+                err,
+            )
+        })?;
     let Some(path) = picked else {
         return Ok(None);
     };
     let Some(path) = path else {
         return Err(error(
             ApiError::BAD_REQUEST,
-            "无法使用此位置：只支持手机存储和存储卡中的文件夹。",
+            rummage_proto::trs!(
+                "无法使用此位置：只支持手机存储和存储卡中的文件夹。",
+                "이 위치는 사용할 수 없습니다. 휴대폰 저장공간과 SD 카드의 폴더만 지원합니다.",
+                "This location can't be used. Only folders in phone storage and on SD cards are supported."
+            ),
         ));
     };
     add(&app, &path).await.map(Some)
@@ -122,14 +144,27 @@ pub async fn pick_subfolder<R: Runtime>(
         .state::<Android<R>>()
         .pick_folder()
         .await
-        .map_err(|err| failed("无法打开文件夹选择器，请重试。", err))?;
+        .map_err(|err| {
+            failed(
+                rummage_proto::trs!(
+                    "无法打开文件夹选择器，请重试。",
+                    "폴더 선택기를 열 수 없습니다. 다시 시도하십시오.",
+                    "Couldn't open the folder picker. Try again."
+                ),
+                err,
+            )
+        })?;
     let Some(path) = picked else {
         return Ok(None);
     };
     let Some(path) = path else {
         return Err(error(
             ApiError::BAD_REQUEST,
-            "无法使用此位置：只支持手机存储和存储卡中的文件夹。",
+            rummage_proto::trs!(
+                "无法使用此位置：只支持手机存储和存储卡中的文件夹。",
+                "이 위치는 사용할 수 없습니다. 휴대폰 저장공간과 SD 카드의 폴더만 지원합니다.",
+                "This location can't be used. Only folders in phone storage and on SD cards are supported."
+            ),
         ));
     };
     crate::folder_filter::locate(&app, root_id, path.to_string_lossy().into_owned())
@@ -144,7 +179,16 @@ pub async fn add_common_root<R: Runtime>(app: AppHandle<R>, name: String) -> Res
         .state::<Android<R>>()
         .storage_root()
         .await
-        .map_err(|err| failed("无法读取手机存储的位置，请重试。", err))?;
+        .map_err(|err| {
+            failed(
+                rummage_proto::trs!(
+                    "无法读取手机存储的位置，请重试。",
+                    "휴대폰 저장공간 위치를 읽을 수 없습니다. 다시 시도하십시오.",
+                    "Couldn't read the phone storage location. Try again."
+                ),
+                err,
+            )
+        })?;
     add(&app, &common_root(&storage, &name)?).await.map(drop)
 }
 
@@ -180,7 +224,16 @@ pub async fn import_models<R: Runtime>(app: AppHandle<R>) -> Result<bool, ApiErr
         .state::<Android<R>>()
         .pick_files(&["*/*"], true, &dir)
         .await
-        .map_err(|err| failed("无法读取所选文件，请重新选择。", err))?;
+        .map_err(|err| {
+            failed(
+                rummage_proto::trs!(
+                    "无法读取所选文件，请重新选择。",
+                    "선택한 파일을 읽을 수 없습니다. 다시 선택하십시오.",
+                    "Couldn't read the selected file. Choose it again."
+                ),
+                err,
+            )
+        })?;
     let Some(paths) = picked else {
         return Ok(false);
     };
@@ -247,7 +300,16 @@ pub async fn pick_config<R: Runtime>(app: &AppHandle<R>) -> Result<Option<String
         .state::<Android<R>>()
         .pick_files(&["application/json"], false, &dir)
         .await
-        .map_err(|err| failed("无法读取所选文件，请重新选择。", err))?;
+        .map_err(|err| {
+            failed(
+                rummage_proto::trs!(
+                    "无法读取所选文件，请重新选择。",
+                    "선택한 파일을 읽을 수 없습니다. 다시 선택하십시오.",
+                    "Couldn't read the selected file. Choose it again."
+                ),
+                err,
+            )
+        })?;
     let Some(path) = picked.and_then(|p| p.into_iter().next()) else {
         return Ok(None);
     };
@@ -260,7 +322,16 @@ pub async fn pick_config<R: Runtime>(app: &AppHandle<R>) -> Result<Option<String
         text
     })
     .await
-    .map_err(|err| error(ApiError::INTERNAL, format!("读取配置文件时出错：{err}")))?;
+    .map_err(|err| {
+        error(
+            ApiError::INTERNAL,
+            rummage_proto::tr!(
+                "读取配置文件时出错：{err}",
+                "설정 파일을 읽는 중 오류가 발생했습니다: {err}",
+                "Error reading the configuration file: {err}"
+            ),
+        )
+    })?;
     res.map(Some)
 }
 
@@ -285,7 +356,16 @@ where
         write(&path)
     })
     .await
-    .map_err(|err| error(ApiError::INTERNAL, format!("生成导出文件时出错：{err}")))?
+    .map_err(|err| {
+        error(
+            ApiError::INTERNAL,
+            rummage_proto::tr!(
+                "生成导出文件时出错：{err}",
+                "내보낼 파일을 만드는 중 오류가 발생했습니다: {err}",
+                "Error creating the export file: {err}"
+            ),
+        )
+    })?
     .map_err(|err| {
         log::warn!("{message}：{err}");
         error(ApiError::INTERNAL, message)

@@ -46,10 +46,20 @@ pub async fn set_appearance<R: Runtime>(
     app: AppHandle<R>,
     appearance: Appearance,
 ) -> Result<(), ApiError> {
+    #[cfg(desktop)]
+    let changed = appearance
+        .language
+        .is_some_and(|l| l != rummage_proto::i18n::lang());
     if let Some(lang) = appearance.language {
         rummage_proto::i18n::set_lang(lang);
     }
-    core::done(&app, Request::SetAppearance { appearance }).await
+    let res = core::done(&app, Request::SetAppearance { appearance }).await;
+    // 语言变化时托盘菜单按新语言重建
+    #[cfg(desktop)]
+    if changed {
+        crate::tray::refresh(&app).await;
+    }
+    res
 }
 
 #[tauri::command]

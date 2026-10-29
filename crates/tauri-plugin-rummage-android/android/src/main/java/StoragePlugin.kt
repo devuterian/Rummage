@@ -1,4 +1,4 @@
-package com.cooksleep.rummage.storage
+package com.marierie.rummage.storage
 
 import android.Manifest
 import android.app.Activity
@@ -47,6 +47,12 @@ class ProgressArgs {
 @InvokeArg
 class OpenFileArgs {
   lateinit var path: String
+}
+
+@InvokeArg
+class LanguageArgs {
+  /** `zh`、`ko` 或 `en` */
+  lateinit var lang: String
 }
 
 @InvokeArg
@@ -115,6 +121,16 @@ class StoragePlugin(private val activity: Activity) : Plugin(activity) {
     invoke.resolve(ret)
   }
 
+  /**
+   * 前端确定或切换界面语言后调用（唯一向前端开放的命令），通知等 Kotlin 侧文字随之改用这个语言；
+   * 正在显示的进度通知在下次更新时换成新语言
+   */
+  @Command
+  fun setLanguage(invoke: Invoke) {
+    Lang.set(activity, invoke.parseArgs(LanguageArgs::class.java).lang)
+    invoke.resolve()
+  }
+
   /** 把应用退到后台：返回键在界面上已经没有可关闭的内容时调用，不结束 Activity，后台建立索引继续 */
   @Command
   fun moveToBack(invoke: Invoke) {
@@ -157,7 +173,7 @@ class StoragePlugin(private val activity: Activity) : Plugin(activity) {
       val dir = File(invoke.parseArgs(OpenFileArgs::class.java).path).parent ?: ""
       val id = StoragePaths.toDocumentId(dir, primary(), volumes())
       if (id == null) {
-        invoke.reject("文件夹不在手机存储或存储卡中：$dir")
+        invoke.reject(Lang.tr(activity, "文件夹不在手机存储或存储卡中：$dir", "폴더가 내장 저장공간이나 SD 카드에 없습니다: $dir", "The folder is not on internal storage or an SD card: $dir"))
         return
       }
       val ret = JSObject()

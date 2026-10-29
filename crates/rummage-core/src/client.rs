@@ -23,6 +23,7 @@ use std::sync::Arc;
 
 use rummage_proto::{
     ApiError, ClientMsg, CoreMsg, Hello, PROTOCOL_VERSION, Reply, Request, Welcome, decode, encode,
+    tr,
 };
 use tokio::io::{AsyncRead, AsyncWrite, BufReader, DuplexStream, ReadHalf, WriteHalf};
 use tokio::sync::oneshot;
@@ -46,22 +47,43 @@ pub struct Client<S = Stream> {
 #[derive(Debug, thiserror::Error)]
 pub enum ConnectError {
     /// 管道不存在
-    #[error("Rummage 后台服务未运行。")]
+    #[error("{}", tr!("Rummage 后台服务未运行。", "Rummage 백그라운드 서비스가 실행 중이 아닙니다.", "The Rummage background service is not running."))]
     NotRunning,
     /// 管道的服务端不是当前用户的进程，或无法确认；此时不发出令牌
-    #[error("无法确认 Rummage 后台服务属于当前用户，已拒绝连接。")]
+    #[error("{}", tr!(
+        "无法确认 Rummage 后台服务属于当前用户，已拒绝连接。",
+        "Rummage 백그라운드 서비스가 현재 사용자의 것인지 확인할 수 없어 연결을 거부했습니다.",
+        "Could not confirm that the Rummage background service belongs to the current user, so the connection was refused."
+    ))]
     Untrusted,
     /// 握手被拒绝（令牌不对、协议版本不符）
     #[error("{}", .0.message)]
     Rejected(ApiError),
-    #[error("无法连接 Rummage 后台服务：{0}")]
+    #[error("{}", io_text(.0))]
     Io(#[from] io::Error),
+}
+
+fn io_text(err: &io::Error) -> String {
+    tr!(
+        "无法连接 Rummage 后台服务：{err}",
+        "Rummage 백그라운드 서비스에 연결할 수 없습니다: {err}",
+        "Could not connect to the Rummage background service: {err}"
+    )
 }
 
 pub async fn connect(pipe: &str, token: &str) -> Result<Client, ConnectError> {
     tokio::time::timeout(HANDSHAKE_TIMEOUT, handshake(pipe, token))
         .await
-        .unwrap_or_else(|_| Err(io::Error::new(ErrorKind::TimedOut, "连接超时。").into()))
+        .unwrap_or_else(|_| Err(io::Error::new(ErrorKind::TimedOut, timed_out()).into()))
+}
+
+/// 握手超时
+fn timed_out() -> String {
+    tr!(
+        "连接超时。",
+        "연결 시간이 초과되었습니다.",
+        "The connection timed out."
+    )
 }
 
 /// 连接本进程中的后台服务：一端交给连接处理（与管道上的连接相同），另一端握手
@@ -73,7 +95,7 @@ pub async fn connect_local(state: &Arc<State>) -> Result<Client<DuplexStream>, C
         hello(ours, state.token(), std::process::id()),
     )
     .await
-    .unwrap_or_else(|_| Err(io::Error::new(ErrorKind::TimedOut, "连接超时。").into()))
+    .unwrap_or_else(|_| Err(io::Error::new(ErrorKind::TimedOut, timed_out()).into()))
 }
 
 async fn handshake(pipe: &str, token: &str) -> Result<Client, ConnectError> {
@@ -100,7 +122,15 @@ async fn hello<S: AsyncRead + AsyncWrite>(
     write_line(&mut writer, &encode(&hello)).await?;
     let mut buf = Vec::new();
     let Some(line) = read_line(&mut reader, &mut buf, MAX_HELLO).await? else {
-        return Err(io::Error::new(ErrorKind::UnexpectedEof, "连接被断开。").into());
+        return Err(io::Error::new(
+            ErrorKind::UnexpectedEof,
+            tr!(
+                "连接被断开。",
+                "연결이 끊어졌습니다.",
+                "The connection was closed."
+            ),
+        )
+        .into());
     };
     match decode::<Result<Welcome, ApiError>>(&line)
         .map_err(|err| io::Error::new(ErrorKind::InvalidData, err))?
@@ -148,7 +178,11 @@ pub async fn reply<S: AsyncRead + AsyncWrite>(
         let Some(line) = read_line(&mut client.reader, &mut buf, MAX_LINE).await? else {
             return Err(io::Error::new(
                 ErrorKind::UnexpectedEof,
-                "Rummage 后台服务断开了连接。",
+                tr!(
+                    "Rummage 后台服务断开了连接。",
+                    "Rummage 백그라운드 서비스와의 연결이 끊어졌습니다.",
+                    "The Rummage background service closed the connection."
+                ),
             ));
         };
         if let Ok(CoreMsg::Response { id: got, result }) = decode(&line)
@@ -199,7 +233,17 @@ fn tail(path: &Path, lines: usize) -> String {
 /// 拉起核心进程，返回它退出时的通知；异常退出时在通知前记录退出码和 core.log 尾部
 fn start(exe: &Path, dir: &Path) -> io::Result<Own> {
     let proc = spawn::spawn_detached(exe, &[OsStr::new("--data-dir"), dir.as_os_str()]).map_err(
-        |err| io::Error::new(err.kind(), format!("无法启动 \"{}\"：{err}", exe.display())),
+        |err| {
+            io::Error::new(
+                err.kind(),
+                tr!(
+                    "无法启动 \"{}\"：{err}",
+                    "프로그램을 시작할 수 없습니다(\"{}\"): {err}",
+                    "Could not start \"{}\": {err}",
+                    exe.display()
+                ),
+            )
+        },
     )?;
     let (tx, rx) = oneshot::channel();
     let log_path = dir.join("logs").join("core.log");
@@ -250,7 +294,11 @@ pub async fn connect_or_start(
             if !shutdown(client).await? {
                 return Err(io::Error::new(
                     ErrorKind::TimedOut,
-                    "旧版本的后台服务 10 秒内没有退出。",
+                    tr!(
+                        "旧版本的后台服务 10 秒内没有退出。",
+                        "이전 버전의 백그라운드 서비스가 10초 안에 종료되지 않았습니다.",
+                        "The old version of the background service did not exit within 10 seconds."
+                    ),
                 )
                 .into());
             }

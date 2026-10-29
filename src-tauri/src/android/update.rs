@@ -37,7 +37,8 @@ use {
 use crate::update_store::{META_FILE, Meta, clear_stale, parse_version, read_meta};
 
 #[cfg(target_os = "android")]
-const INFO_URL: &str = "https://github.com/CookSleep/Rummage/releases/latest/download/android.json";
+const INFO_URL: &str =
+    "https://github.com/devuterian/Rummage/releases/latest/download/android.json";
 const APK_FILE: &str = "update.apk";
 const PART_FILE: &str = "download.part";
 #[cfg(target_os = "android")]
@@ -118,9 +119,23 @@ pub fn cleanup(dir: &Path, current: &Version) {
 fn network_error(err: reqwest::Error) -> ApiError {
     log::warn!("下载更新包失败：{err:?}");
     if err.is_timeout() {
-        return error(NETWORK, "下载更新包超时，请重试。");
+        return error(
+            NETWORK,
+            rummage_proto::trs!(
+                "下载更新包超时，请重试。",
+                "업데이트 다운로드 시간이 초과되었습니다. 다시 시도하십시오.",
+                "Downloading the update timed out. Try again."
+            ),
+        );
     }
-    error(NETWORK, "网络连接失败，请检查网络和代理设置后重试。")
+    error(
+        NETWORK,
+        rummage_proto::trs!(
+            "网络连接失败，请检查网络和代理设置后重试。",
+            "네트워크에 연결하지 못했습니다. 네트워크와 프록시 설정을 확인한 뒤 다시 시도하십시오.",
+            "Network connection failed. Check your network and proxy settings, then try again."
+        ),
+    )
 }
 
 #[cfg(target_os = "android")]
@@ -134,7 +149,14 @@ async fn client<R: Runtime>(app: &AppHandle<R>) -> Result<Client, ApiError> {
         .and_then(|b| b.build())
         .map_err(|err| {
             log::error!("无法创建下载更新用的网络客户端：{err}");
-            error(NETWORK, "无法创建网络连接，请检查代理设置后重试。")
+            error(
+                NETWORK,
+                rummage_proto::trs!(
+                    "无法创建网络连接，请检查代理设置后重试。",
+                    "네트워크 연결을 만들 수 없습니다. 프록시 설정을 확인한 뒤 다시 시도하십시오.",
+                    "Couldn't create a network connection. Check the proxy settings and try again."
+                ),
+            )
         })
 }
 
@@ -148,22 +170,50 @@ async fn fetch_info(client: &Client) -> Result<Info, ApiError> {
         .map_err(network_error)?;
     let status = res.status();
     if status == StatusCode::NOT_FOUND {
-        return Err(error(UPDATE, "未找到更新包信息。"));
+        return Err(error(
+            UPDATE,
+            rummage_proto::trs!(
+                "未找到更新包信息。",
+                "업데이트 정보를 찾을 수 없습니다.",
+                "Update information not found."
+            ),
+        ));
     }
     if !status.is_success() {
         return Err(error(
             UPDATE,
-            format!("检查更新包失败：HTTP {}", status.as_u16()),
+            rummage_proto::tr!(
+                "检查更新包失败：HTTP {}",
+                "업데이트를 확인하지 못했습니다: HTTP {}",
+                "Failed to check for the update package: HTTP {}",
+                status.as_u16()
+            ),
         ));
     }
     let mut body = Vec::new();
     while let Some(chunk) = res.chunk().await.map_err(network_error)? {
         if body.len() + chunk.len() > MAX_INFO {
-            return Err(error(UPDATE, "更新包信息的格式不正确。"));
+            return Err(error(
+                UPDATE,
+                rummage_proto::trs!(
+                    "更新包信息的格式不正确。",
+                    "업데이트 정보 형식이 올바르지 않습니다.",
+                    "The update information is malformed."
+                ),
+            ));
         }
         body.extend_from_slice(&chunk);
     }
-    parse_info(&body).ok_or_else(|| error(UPDATE, "更新包信息的格式不正确。"))
+    parse_info(&body).ok_or_else(|| {
+        error(
+            UPDATE,
+            rummage_proto::trs!(
+                "更新包信息的格式不正确。",
+                "업데이트 정보 형식이 올바르지 않습니다.",
+                "The update information is malformed."
+            ),
+        )
+    })
 }
 
 /// 下载 APK 到 `part`，返回 SHA-256；大小超出 `android.json` 中的大小时中止
@@ -186,7 +236,12 @@ async fn download(
         log::warn!("下载更新包时服务器返回 {}", res.status());
         return Err(error(
             UPDATE,
-            format!("下载更新包失败：HTTP {}", res.status().as_u16()),
+            rummage_proto::tr!(
+                "下载更新包失败：HTTP {}",
+                "업데이트를 다운로드하지 못했습니다: HTTP {}",
+                "Failed to download the update: HTTP {}",
+                res.status().as_u16()
+            ),
         ));
     }
     let mut hasher = Sha256::new();
@@ -195,7 +250,14 @@ async fn download(
     while let Some(chunk) = res.chunk().await.map_err(network_error)? {
         downloaded += chunk.len() as u64;
         if downloaded > info.size {
-            return Err(error(UPDATE, "更新包校验失败，请重新下载。"));
+            return Err(error(
+                UPDATE,
+                rummage_proto::trs!(
+                    "更新包校验失败，请重新下载。",
+                    "업데이트 파일 검사에 실패했습니다. 다시 다운로드하십시오.",
+                    "The update package failed verification. Download it again."
+                ),
+            ));
         }
         hasher.update(&chunk);
         file.write_all(&chunk).await.map_err(save_error)?;
@@ -225,7 +287,16 @@ pub async fn update_ready<R: Runtime>(app: AppHandle<R>) -> Result<Option<String
         read_saved(&dir, &current).map(|(meta, _)| meta.version)
     })
     .await
-    .map_err(|err| error(ApiError::INTERNAL, format!("校验更新包异常结束：{err}")))
+    .map_err(|err| {
+        error(
+            ApiError::INTERNAL,
+            rummage_proto::tr!(
+                "校验更新包异常结束：{err}",
+                "업데이트 파일 검사가 비정상적으로 끝났습니다: {err}",
+                "Verifying the update package ended unexpectedly: {err}"
+            ),
+        )
+    })
 }
 
 /// 下载 version 对应的 APK 并保存（覆盖旧包），下载进度经 on_progress 传给前端。
@@ -242,10 +313,24 @@ pub async fn update_download<R: Runtime>(
     let info = fetch_info(&client).await?;
     let current = app.package_info().version.clone();
     if parse_version(&info.version).is_none_or(|v| v <= current) {
-        return Err(error(UPDATE, "更新源中暂无新的版本。"));
+        return Err(error(
+            UPDATE,
+            rummage_proto::trs!(
+                "更新源中暂无新的版本。",
+                "업데이트 서버에 새 버전이 아직 없습니다.",
+                "No new version is available from the update source yet."
+            ),
+        ));
     }
     if parse_version(&info.version) != parse_version(&version) {
-        return Err(error(UPDATE, "更新包信息尚未同步到最新版本，请稍后重试。"));
+        return Err(error(
+            UPDATE,
+            rummage_proto::trs!(
+                "更新包信息尚未同步到最新版本，请稍后重试。",
+                "업데이트 정보가 아직 최신 버전으로 갱신되지 않았습니다. 잠시 후 다시 시도하십시오.",
+                "The update information hasn't caught up with the latest version yet. Try again later."
+            ),
+        ));
     }
     let dir = updates_dir(&app)?;
     tokio::fs::create_dir_all(&dir).await.map_err(save_error)?;
@@ -253,7 +338,14 @@ pub async fn update_download<R: Runtime>(
     let res = download(&client, &info, &part, &on_progress).await;
     let ok = match res {
         Ok(sha) if sha == info.sha256 => Ok(()),
-        Ok(_) => Err(error(UPDATE, "更新包校验失败，请重新下载。")),
+        Ok(_) => Err(error(
+            UPDATE,
+            rummage_proto::trs!(
+                "更新包校验失败，请重新下载。",
+                "업데이트 파일 검사에 실패했습니다. 다시 다운로드하십시오.",
+                "The update package failed verification. Download it again."
+            ),
+        )),
         Err(err) => Err(err),
     };
     if let Err(err) = ok {
@@ -266,7 +358,16 @@ pub async fn update_download<R: Runtime>(
     }
     tauri::async_runtime::spawn_blocking(move || commit(&dir, &info.version, &info.sha256))
         .await
-        .map_err(|err| error(ApiError::INTERNAL, format!("保存更新包异常结束：{err}")))?
+        .map_err(|err| {
+            error(
+                ApiError::INTERNAL,
+                rummage_proto::tr!(
+                    "保存更新包异常结束：{err}",
+                    "업데이트 파일 저장이 비정상적으로 끝났습니다: {err}",
+                    "Saving the update package ended unexpectedly: {err}"
+                ),
+            )
+        })?
         .map_err(|err| {
             log::warn!("保存更新包失败：{err}");
             save_error(err)
@@ -282,37 +383,88 @@ pub async fn update_install<R: Runtime>(app: AppHandle<R>) -> Result<(), ApiErro
     let current = app.package_info().version.clone();
     let (_, apk) = tauri::async_runtime::spawn_blocking(move || read_saved(&dir, &current))
         .await
-        .map_err(|err| error(ApiError::INTERNAL, format!("校验更新包异常结束：{err}")))?
-        .ok_or_else(|| error(UPDATE, "本地安装包已失效，请重新下载。"))?;
+        .map_err(|err| {
+            error(
+                ApiError::INTERNAL,
+                rummage_proto::tr!(
+                    "校验更新包异常结束：{err}",
+                    "업데이트 파일 검사가 비정상적으로 끝났습니다: {err}",
+                    "Verifying the update package ended unexpectedly: {err}"
+                ),
+            )
+        })?
+        .ok_or_else(|| {
+            error(
+                UPDATE,
+                rummage_proto::trs!(
+                    "本地安装包已失效，请重新下载。",
+                    "받아 둔 설치 파일을 더 이상 쓸 수 없습니다. 다시 다운로드하십시오.",
+                    "The downloaded installer is no longer valid. Download it again."
+                ),
+            )
+        })?;
     let plugin = app.state::<Android<R>>();
-    let allowed = plugin
-        .can_install_packages()
-        .await
-        .map_err(|err| failed("无法读取安装应用的权限，请重试。", err))?;
+    let allowed = plugin.can_install_packages().await.map_err(|err| {
+        failed(
+            rummage_proto::trs!(
+                "无法读取安装应用的权限，请重试。",
+                "앱 설치 권한을 읽을 수 없습니다. 다시 시도하십시오.",
+                "Couldn't read the app install permission. Try again."
+            ),
+            err,
+        )
+    })?;
     let allowed = allowed
         || plugin.request_install_packages().await.map_err(|err| {
             failed(
-                "无法打开设置页面，请在系统设置中允许 Rummage 安装未知应用。",
+                rummage_proto::trs!("无法打开设置页面，请在系统设置中允许 Rummage 安装未知应用。", "설정 화면을 열 수 없습니다. 시스템 설정에서 Rummage의 출처를 알 수 없는 앱 설치를 허용하십시오.", "Couldn't open the settings page. In system settings, allow Rummage to install unknown apps."),
                 err,
             )
         })?;
     if !allowed {
-        return Err(error(UPDATE, "需要允许 Rummage 安装应用，才能安装更新。"));
+        return Err(error(
+            UPDATE,
+            rummage_proto::trs!(
+                "需要允许 Rummage 安装应用，才能安装更新。",
+                "업데이트를 설치하려면 Rummage의 앱 설치를 허용해야 합니다.",
+                "Allow Rummage to install apps to install the update."
+            ),
+        ));
     }
-    let res = plugin
-        .install_apk(&apk)
-        .await
-        .map_err(|err| failed("安装更新失败，请重试。", err))?;
+    let res = plugin.install_apk(&apk).await.map_err(|err| {
+        failed(
+            rummage_proto::trs!(
+                "安装更新失败，请重试。",
+                "업데이트를 설치하지 못했습니다. 다시 시도하십시오.",
+                "Failed to install the update. Try again."
+            ),
+            err,
+        )
+    })?;
     match res.status.as_str() {
         "success" => Ok(()),
-        "aborted" => Err(error(UPDATE, "已取消安装更新。")),
+        "aborted" => Err(error(
+            UPDATE,
+            rummage_proto::trs!(
+                "已取消安装更新。",
+                "업데이트 설치를 취소했습니다.",
+                "Update installation canceled."
+            ),
+        )),
         _ => {
             log::warn!(
                 "安装更新失败：{} {}",
                 res.code,
                 res.message.unwrap_or_default()
             );
-            Err(error(UPDATE, "安装更新失败，请重试。"))
+            Err(error(
+                UPDATE,
+                rummage_proto::trs!(
+                    "安装更新失败，请重试。",
+                    "업데이트를 설치하지 못했습니다. 다시 시도하십시오.",
+                    "Failed to install the update. Try again."
+                ),
+            ))
         }
     }
 }
@@ -332,7 +484,7 @@ mod tests {
 
     #[test]
     fn info_is_validated() {
-        let url = "https://github.com/CookSleep/Rummage/releases/download/v0.2.0/Rummage_0.2.0_android-arm64.apk";
+        let url = "https://github.com/devuterian/Rummage/releases/download/v0.2.0/Rummage_0.2.0_android-arm64.apk";
         assert_eq!(
             parse_info(&body("0.2.0", url, SHA, 4)),
             Some(Info {

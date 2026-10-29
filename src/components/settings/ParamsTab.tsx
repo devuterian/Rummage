@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ParamDef, ParamGroup, ParamValue, ParamValues } from '../../types'
 import { useIndexStatus } from '../../hooks/useIndexStatus'
 import { useParamChanges } from '../../hooks/useParamChanges'
+import { t } from '../../lib/i18n'
 import { rebuildConfirmText } from '../../lib/params'
 import { isAndroid } from '../../lib/platform'
 import { rebuildNotice } from '../../lib/rebuild'
@@ -83,7 +84,7 @@ export default function ParamsTab({ group, defs, values, setParam, onDevice, foc
     <div className="space-y-8">
       <div className="space-y-4">
         <div className="flex items-start justify-between gap-3">
-          {desc && <p className={`pt-1.5 ${ROW_DESC}`}>{desc}</p>}
+          {desc && <p className={`pt-1.5 ${ROW_DESC}`}>{t(desc)}</p>}
           <button
             type="button"
             disabled={!changed.length}
@@ -91,7 +92,7 @@ export default function ParamsTab({ group, defs, values, setParam, onDevice, foc
             className={`ml-auto ${HEADER_BUTTON}`}
           >
             <ResetIcon className="h-3.5 w-3.5" />
-            全部恢复默认
+            {t('全部恢复默认')}
           </button>
         </div>
         {rebuild && <div className={NOTICE_BOX}>{rebuildNotice(rebuild)}</div>}
@@ -101,15 +102,15 @@ export default function ParamsTab({ group, defs, values, setParam, onDevice, foc
 
       {sections.map((sec) => (
         <section key={sec.title} className="space-y-4">
-          <h4 className={SECTION_TITLE}>{sec.title}</h4>
+          <h4 className={SECTION_TITLE}>{t(sec.title)}</h4>
           {sec.defs.map((d) => (
             <div key={`${d.key}-${epoch}`} ref={d.key === focus ? focusRef : undefined}>
               <ParamField def={d} value={values[d.key] ?? d.default} onChange={(v) => request([[d, v]])} />
               {d.key === SELFTEST_KEY && recheck && (
                 <div className={`mt-2 ${NOTICE_BOX}`}>
-                  <span className="flex-1">需要重新检测设备，新的通过标准才会生效。</span>
+                  <span className="flex-1">{t('需要重新检测设备，新的通过标准才会生效。')}</span>
                   <button type="button" className="flex-shrink-0 font-medium hover:underline" onClick={onDevice}>
-                    前往检测
+                    {t('前往检测')}
                   </button>
                 </div>
               )}
@@ -123,9 +124,9 @@ export default function ParamsTab({ group, defs, values, setParam, onDevice, foc
 
       {pending && (
         <ConfirmDialog
-          title="重建索引"
+          title={t('重建索引')}
           message={rebuildConfirmText(pending)}
-          confirmText="修改并重建"
+          confirmText={t('修改并重建')}
           onConfirm={confirm}
           onCancel={cancel}
         />

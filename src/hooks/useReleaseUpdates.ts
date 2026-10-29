@@ -5,6 +5,7 @@ import type { ReleaseCache, ReleaseInfo } from '../lib/releaseUpdates'
 import { errorMessage } from '../lib/errors'
 import { readLocal, writeLocal } from '../lib/storage'
 import { isReleaseCacheFresh, mergeReleasePage, parseReleaseCache, parseReleasePage, RELEASE_CACHE_TTL_MS } from '../lib/releaseUpdates'
+import { t } from '../lib/i18n'
 
 const CACHE_KEY = 'rummage.releaseCache'
 const IGNORED_KEY = 'rummage.ignoredRelease'
@@ -39,7 +40,7 @@ async function fetchReleasePage(page: number) {
   try {
     return parseReleasePage(JSON.parse(text))
   } catch {
-    throw new Error('版本信息的格式不正确。')
+    throw new Error(t('版本信息的格式不正确。'))
   }
 }
 
@@ -65,7 +66,7 @@ export function checkForUpdates(ttl = RELEASE_CACHE_TTL_MS) {
     } catch (err) {
       // 失败时退回过期缓存，避免弹窗中已显示的内容消失
       if (cache) applyCache(cache)
-      useReleaseUpdates.setState({ checkError: errorMessage(err, '检查更新失败，请稍后再试。') })
+      useReleaseUpdates.setState({ checkError: errorMessage(err, t('检查更新失败，请稍后再试。')) })
       throw err
     }
   })().finally(() => {

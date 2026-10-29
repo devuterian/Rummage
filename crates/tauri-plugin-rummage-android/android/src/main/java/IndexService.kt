@@ -1,4 +1,4 @@
-package com.cooksleep.rummage.storage
+package com.marierie.rummage.storage
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -59,12 +59,13 @@ class IndexService : Service() {
     BackgroundEvents.post("timeout")
     stopSelf()
     val nm = getSystemService(NotificationManager::class.java) ?: return
-    channels(nm)
+    channels(this, nm)
+    val text = Lang.tr(this, "系统限制应用每天在后台最多运行 6 小时。打开 Rummage 即可继续。", "Android는 앱이 백그라운드에서 하루 최대 6시간까지만 실행되도록 제한합니다. Rummage를 열면 색인을 이어서 진행합니다.", "Android limits background work to 6 hours a day. Open Rummage to continue.")
     val n = Notification.Builder(this, NOTICE_CHANNEL)
       .setSmallIcon(R.drawable.rummage_notification)
-      .setContentTitle("已暂停建立索引")
-      .setContentText("系统限制应用每天在后台最多运行 6 小时。打开 Rummage 即可继续。")
-      .setStyle(Notification.BigTextStyle().bigText("系统限制应用每天在后台最多运行 6 小时。打开 Rummage 即可继续。"))
+      .setContentTitle(Lang.tr(this, "已暂停建立索引", "색인 일시정지됨", "Indexing paused"))
+      .setContentText(text)
+      .setStyle(Notification.BigTextStyle().bigText(text))
       .setContentIntent(openApp(this))
       .setAutoCancel(true)
       .build()
@@ -117,9 +118,10 @@ class IndexService : Service() {
       }
     }
 
-    fun channels(nm: NotificationManager) {
-      nm.createNotificationChannel(NotificationChannel(PROGRESS_CHANNEL, "建立索引", NotificationManager.IMPORTANCE_LOW))
-      nm.createNotificationChannel(NotificationChannel(NOTICE_CHANNEL, "提示", NotificationManager.IMPORTANCE_DEFAULT))
+    /** 渠道已存在时再次创建只更新名称，名称随界面语言变化 */
+    fun channels(ctx: Context, nm: NotificationManager) {
+      nm.createNotificationChannel(NotificationChannel(PROGRESS_CHANNEL, Lang.tr(ctx, "建立索引", "색인 생성", "Indexing"), NotificationManager.IMPORTANCE_LOW))
+      nm.createNotificationChannel(NotificationChannel(NOTICE_CHANNEL, Lang.tr(ctx, "提示", "알림", "Notices"), NotificationManager.IMPORTANCE_DEFAULT))
     }
 
     fun openApp(ctx: Context): PendingIntent? {
@@ -129,7 +131,7 @@ class IndexService : Service() {
 
     private fun progress(ctx: Context): Notification {
       val nm = ctx.getSystemService(NotificationManager::class.java)
-      if (nm != null) channels(nm)
+      if (nm != null) channels(ctx, nm)
       shownAt = SystemClock.elapsedRealtime()
       val max = total.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
       val cur = done.coerceAtMost(total).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
@@ -139,8 +141,10 @@ class IndexService : Service() {
         .setOngoing(true)
         .setOnlyAlertOnce(true)
       val paused = note
-      if (paused != null) return b.setContentTitle("已暂停建立索引").setContentText(paused).build()
-      return b.setContentTitle("正在建立索引").setContentText("已完成 $done / 共 $total").setProgress(max, cur, max == 0).build()
+      if (paused != null) return b.setContentTitle(Lang.tr(ctx, "已暂停建立索引", "색인 일시정지됨", "Indexing paused")).setContentText(paused).build()
+      return b.setContentTitle(Lang.tr(ctx, "正在建立索引", "색인 생성 중", "Indexing"))
+        .setContentText(Lang.tr(ctx, "已完成 $done / 共 $total", "$done / $total 완료", "$done of $total done"))
+        .setProgress(max, cur, max == 0).build()
     }
 
     /** 启动服务；系统不允许从后台启动时返回 false */

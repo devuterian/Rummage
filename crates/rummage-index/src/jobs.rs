@@ -34,6 +34,36 @@ pub const MAX_ATTEMPTS: i64 = 3;
 pub fn blacklisted() -> String {
     format!("连续失败 {MAX_ATTEMPTS} 次，不再处理此文件；文件修改后会重新尝试。")
 }
+
+/// 库中记的失败原因：本模块写入的几种固定原因是中文（也用作查询条件），读出给用户看时按界面语言换掉；
+/// 其他原因写入时已是给用户看的文字，原样返回
+pub(crate) fn shown_reason(reason: String) -> String {
+    if reason == blacklisted() {
+        return rummage_proto::tr!(
+            "连续失败 {MAX_ATTEMPTS} 次，不再处理此文件；文件修改后会重新尝试。",
+            "{MAX_ATTEMPTS}번 연속 실패해 이 파일은 더 이상 처리하지 않습니다. 파일이 수정되면 다시 시도합니다.",
+            "Failed {MAX_ATTEMPTS} times in a row, so this file won't be processed again until it's modified."
+        );
+    }
+    match reason.as_str() {
+        CRASHED => rummage_proto::tr!(
+            "上次处理此文件时 Rummage 意外退出。",
+            "지난번 이 파일을 처리하던 중 Rummage가 예기치 않게 종료되었습니다.",
+            "Rummage quit unexpectedly while processing this file last time."
+        ),
+        INTERRUPTED => rummage_proto::tr!(
+            "上次处理此文件时 Rummage 被结束。",
+            "지난번 이 파일을 처리하던 중 Rummage가 종료되었습니다.",
+            "Rummage was closed while processing this file last time."
+        ),
+        ENCRYPTED => rummage_proto::tr!(
+            "此文档已加密或受密码保护，只能按文件名搜索。",
+            "암호화되었거나 암호로 보호된 문서라 파일 이름으로만 검색할 수 있습니다.",
+            "This document is encrypted or password-protected, so it can only be found by file name."
+        ),
+        _ => reason,
+    }
+}
 const CRASHED: &str = "上次处理此文件时 Rummage 意外退出。";
 /// 不是核心自己崩溃的中断，记在放回的作业上（详情中显示为“等待重试”的原因）
 const INTERRUPTED: &str = "上次处理此文件时 Rummage 被结束。";

@@ -9,7 +9,7 @@ use std::fs;
 use rummage_extract::media::{At, Embedded, Loaded, MediaOpts, Source};
 use rummage_extract::read_bytes;
 use rummage_index::{SegmentRow, ensure_local};
-use rummage_proto::{ApiError, Reply, params};
+use rummage_proto::{ApiError, Reply, params, tr};
 
 use super::super::setup::config;
 use super::{
@@ -23,7 +23,13 @@ pub(super) fn embed_thumb(
 ) -> Result<Reply, ApiError> {
     let bad = |msg: &str| api_error(ApiError::BAD_REQUEST, msg);
     let embed = &loc["embed"];
-    let at = Embedded::at_of(embed).ok_or_else(|| bad("这个结果不是文档中的图片或视频。"))?;
+    let at = Embedded::at_of(embed).ok_or_else(|| {
+        bad(&tr!(
+            "这个结果不是文档中的图片或视频。",
+            "이 결과는 문서 안의 이미지나 동영상이 아닙니다.",
+            "This result isn't an image or video inside a document."
+        ))
+    })?;
     let kind = embed["kind"].as_str().unwrap_or_default();
     let n = embed["n"].as_u64().unwrap_or(0);
     let mid = match (loc["start_ms"].as_u64(), loc["end_ms"].as_u64()) {
@@ -38,7 +44,13 @@ pub(super) fn embed_thumb(
     let name = match (kind, mid) {
         ("image", _) => format!("{key}.webp"),
         ("video", Some(ms)) => format!("{key}_t{ms}.webp"),
-        _ => return Err(bad("这个结果没有可以显示的画面。")),
+        _ => {
+            return Err(bad(&tr!(
+                "这个结果没有可以显示的画面。",
+                "이 결과에는 표시할 화면이 없습니다.",
+                "This result has no picture to show."
+            )));
+        }
     };
     let (f, dir, qh) = local_file(state, seg.file_id)?;
     let path = derived_dir(dir, &qh).join(name);
@@ -62,13 +74,23 @@ pub(super) fn embed_thumb(
     };
     let fail = |err: String| {
         log::warn!("无法取出 {} 中的第 {n} 个内嵌媒体：{err}", f.path.display());
-        bad("无法取出文档中的这张图片。")
+        bad(&tr!(
+            "无法取出文档中的这张图片。",
+            "문서에서 이 이미지를 가져올 수 없습니다.",
+            "Can't get this image from the document."
+        ))
     };
     let src = read_bytes(&f.path, max_doc)
         .map_err(|err| err.to_string())
         .and_then(|b| Source::open(&f.ext, b).map_err(|err| err.to_string()))
         .map_err(fail)?
-        .ok_or_else(|| bad("这个文件中没有可以取出的图片。"))?;
+        .ok_or_else(|| {
+            bad(&tr!(
+                "这个文件中没有可以取出的图片。",
+                "이 파일에는 가져올 수 있는 이미지가 없습니다.",
+                "This file has no images that can be extracted."
+            ))
+        })?;
     let loaded = src.load(&at, &opts).map_err(|err| fail(err.to_string()))?;
     let img = match (loaded, mid) {
         (

@@ -517,7 +517,7 @@ impl CacheFile {
 /// 解除屏蔽后的检测结果：记为“已跳过”、不带耗时，下次检测时重测
 pub(super) fn unblocked(r: &mut CandidateReport) {
     r.status = Status::Skipped;
-    r.reason = Some(UNBLOCKED_REASON.to_string());
+    r.reason = Some(super::shown_reason(UNBLOCKED_REASON).to_string());
     r.samples.clear();
     (r.init_ms, r.text_ms, r.image_ms, r.audio_ms, r.video_ms) = (None, None, None, None, None);
     r.speed = None;

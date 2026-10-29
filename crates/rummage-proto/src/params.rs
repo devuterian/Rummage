@@ -146,17 +146,32 @@ pub fn max_image_pixels(values: &BTreeMap<String, ParamValue>) -> u64 {
 /// 校验通过时返回规范化后的值：浮点参数收到整数时转为 `Float`
 pub fn validate(key: &str, value: &ParamValue) -> Result<ParamValue, Error> {
     let Some(d) = def(key) else {
-        return Err(Error::InvalidParam(format!("没有名为“{key}”的参数。")));
+        return Err(Error::InvalidParam(crate::tr!(
+            "没有名为“{key}”的参数。",
+            "‘{key}’ 매개변수가 없습니다.",
+            "There is no parameter named \"{key}\"."
+        )));
     };
-    let bad = |msg: String| Err(Error::InvalidParam(format!("“{}”{msg}", d.label)));
+    let label = d.label;
+    let bad = |msg: String| Err(Error::InvalidParam(msg));
     match (d.kind, *value) {
         (ParamKind::Bool, ParamValue::Bool(_)) => Ok(*value),
-        (ParamKind::Bool, _) => bad("应为开关。".into()),
+        (ParamKind::Bool, _) => bad(crate::tr!(
+            "“{label}”应为开关。",
+            "‘{label}’ 값은 켜기/끄기여야 합니다.",
+            "\"{label}\" must be on or off."
+        )),
         (ParamKind::Int { min, max }, ParamValue::Int(v)) if (min..=max).contains(&v) => Ok(*value),
-        (ParamKind::Int { min, max }, ParamValue::Int(_)) => {
-            bad(format!("应在 {min} 到 {max} 之间。"))
-        }
-        (ParamKind::Int { .. }, _) => bad("应为整数。".into()),
+        (ParamKind::Int { min, max }, ParamValue::Int(_)) => bad(crate::tr!(
+            "“{label}”应在 {min} 到 {max} 之间。",
+            "‘{label}’ 값은 {min}–{max} 범위여야 합니다.",
+            "\"{label}\" must be between {min} and {max}."
+        )),
+        (ParamKind::Int { .. }, _) => bad(crate::tr!(
+            "“{label}”应为整数。",
+            "‘{label}’ 값은 정수여야 합니다.",
+            "\"{label}\" must be an integer."
+        )),
         (ParamKind::Float { min, max }, ParamValue::Float(v)) if (min..=max).contains(&v) => {
             Ok(*value)
         }
@@ -167,9 +182,17 @@ pub fn validate(key: &str, value: &ParamValue) -> Result<ParamValue, Error> {
             Ok(ParamValue::Float(v as f64))
         }
         (ParamKind::Float { min, max }, ParamValue::Int(_) | ParamValue::Float(_)) => {
-            bad(format!("应在 {min} 到 {max} 之间。"))
+            bad(crate::tr!(
+                "“{label}”应在 {min} 到 {max} 之间。",
+                "‘{label}’ 값은 {min}–{max} 범위여야 합니다.",
+                "\"{label}\" must be between {min} and {max}."
+            ))
         }
-        (ParamKind::Float { .. }, _) => bad("应为数字。".into()),
+        (ParamKind::Float { .. }, _) => bad(crate::tr!(
+            "“{label}”应为数字。",
+            "‘{label}’ 값은 숫자여야 합니다.",
+            "\"{label}\" must be a number."
+        )),
         (ParamKind::Named { options, .. }, ParamValue::Int(v))
             if options.iter().any(|o| o.0 == v) =>
         {
@@ -177,7 +200,14 @@ pub fn validate(key: &str, value: &ParamValue) -> Result<ParamValue, Error> {
         }
         (ParamKind::Named { options, .. }, _) => {
             let list: Vec<&str> = options.iter().map(|o| o.1).collect();
-            bad(format!("只能取“{}”之一。", list.join("”“")))
+            let zh = list.join("”“");
+            let other = list.join("’, ‘");
+            let en = list.join("\", \"");
+            bad(crate::tr!(
+                "“{label}”只能取“{zh}”之一。",
+                "‘{label}’ 값은 ‘{other}’ 중 하나여야 합니다.",
+                "\"{label}\" must be one of \"{en}\"."
+            ))
         }
     }
 }

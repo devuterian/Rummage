@@ -93,15 +93,22 @@ pub async fn pick_subfolder<R: Runtime>(
     let Some(root) = roots.into_iter().find(|r| r.id == root_id) else {
         return Err(error(
             ApiError::BAD_REQUEST,
-            "此文件夹已不在索引中，请重新打开搜索页。",
+            rummage_proto::trs!(
+                "此文件夹已不在索引中，请重新打开搜索页。",
+                "이 폴더는 더 이상 색인 대상이 아닙니다. 검색 화면을 다시 여십시오.",
+                "This folder is no longer indexed. Reopen the search page."
+            ),
         ));
     };
     let (tx, rx) = tokio::sync::oneshot::channel();
-    crate::file_dialog(&app, "选择子文件夹")
-        .set_directory(&root.path)
-        .pick_folder(move |dir| {
-            let _ = tx.send(dir);
-        });
+    crate::file_dialog(
+        &app,
+        rummage_proto::trs!("选择子文件夹", "하위 폴더 선택", "Choose a subfolder"),
+    )
+    .set_directory(&root.path)
+    .pick_folder(move |dir| {
+        let _ = tx.send(dir);
+    });
     let Some(dir) = rx.await.ok().flatten() else {
         return Ok(None);
     };
@@ -109,7 +116,11 @@ pub async fn pick_subfolder<R: Runtime>(
         log::warn!("无法读取所选文件夹的路径：{err}");
         error(
             ApiError::BAD_REQUEST,
-            "无法读取所选文件夹的路径，请重新选择。",
+            rummage_proto::trs!(
+                "无法读取所选文件夹的路径，请重新选择。",
+                "선택한 폴더의 경로를 읽을 수 없습니다. 다시 선택하십시오.",
+                "Couldn't read the selected folder's path. Choose it again."
+            ),
         )
     })?;
     locate(&app, root_id, path.to_string_lossy().into_owned())

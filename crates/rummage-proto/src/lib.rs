@@ -29,7 +29,7 @@ pub const PROTOCOL_VERSION: u32 = 2;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("消息格式不正确：{0}")]
+    #[error("{prefix}{0}", prefix = crate::trs!("消息格式不正确：", "메시지 형식 오류: ", "Malformed message: "))]
     Decode(#[from] serde_json::Error),
     /// 参数不存在或取值不合法，内容是给用户看的中文整句
     #[error("{0}")]

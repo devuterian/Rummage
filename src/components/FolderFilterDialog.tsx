@@ -5,6 +5,7 @@ import type { FolderFilter, FolderFilterEntry, PickedFolder, RootInfo } from '..
 import { errorMessage } from '../lib/errors'
 import { folderScope } from '../lib/filter'
 import { abbreviatePath, folderName } from '../lib/format'
+import { t } from '../lib/i18n'
 import { useEscape } from '../hooks/useEscape'
 import Checkbox from './Checkbox'
 import ConfirmDialog from './ConfirmDialog'
@@ -65,7 +66,7 @@ export default function FolderFilterDialog({ roots, filter, onSaved, onClose }: 
       })
       .catch((err) => {
         console.warn('无法选择子文件夹：', err)
-        showToast(errorMessage(err, '无法选择子文件夹，请稍后再试'), 'error')
+        showToast(errorMessage(err, t('无法选择子文件夹，请稍后再试')), 'error')
       })
       .finally(() => setBusy(false))
   }
@@ -80,7 +81,7 @@ export default function FolderFilterDialog({ roots, filter, onSaved, onClose }: 
       .then(() => onSaved(next))
       .catch((err) => {
         console.warn('无法保存文件夹筛选：', err)
-        showToast(errorMessage(err, '无法保存文件夹筛选，请稍后再试'), 'error')
+        showToast(errorMessage(err, t('无法保存文件夹筛选，请稍后再试')), 'error')
       })
       .finally(() => setBusy(false))
   }
@@ -91,17 +92,17 @@ export default function FolderFilterDialog({ roots, filter, onSaved, onClose }: 
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="选择要搜索的文件夹"
+        aria-label={t('选择要搜索的文件夹')}
         className="relative z-10 flex max-h-[min(640px,100%)] w-full max-w-md animate-confirm-in flex-col rounded-3xl border border-white/50 bg-white/90 shadow-[0_8px_40px_rgb(0,0,0,0.12)] ring-1 ring-black/5 backdrop-blur-xl dark:border-white/[0.08] dark:bg-gray-900/90 dark:shadow-[0_8px_40px_rgb(0,0,0,0.4)] dark:ring-white/10"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between gap-4 px-6 pb-3 pt-6">
-          <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">选择要搜索的文件夹</h3>
+          <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">{t('选择要搜索的文件夹')}</h3>
           <button
             type="button"
             onClick={onClose}
             className="shrink-0 rounded-full p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
-            aria-label="关闭"
+            aria-label={t('关闭')}
           >
             <CloseIcon className="h-5 w-5" />
           </button>
@@ -114,8 +115,8 @@ export default function FolderFilterDialog({ roots, filter, onSaved, onClose }: 
             const rootOn = isChecked(root.id, '')
             const base = `${root.path.replace(/[\\/]+$/, '')}${root.path.includes('\\') ? '\\' : '/'}`
             const subs = entries.filter((e) => e.rootId === root.id && e.rel).sort((a, b) => a.rel.localeCompare(b.rel, 'zh-CN'))
-            const clearLabel = `清除「${name}」中的勾选`
-            const toggleLabel = open ? '收起子文件夹' : '展开子文件夹'
+            const clearLabel = t('清除「{name}」中的勾选', { name })
+            const toggleLabel = open ? t('收起子文件夹') : t('展开子文件夹')
             const narrowed = rootOn && subs.some((s) => s.checked)
             return (
               <div key={root.id} className="border-b border-black/[0.05] py-1 last:border-b-0 dark:border-white/[0.06]">
@@ -132,7 +133,7 @@ export default function FolderFilterDialog({ roots, filter, onSaved, onClose }: 
                       }
                     />
                   </div>
-                  {narrowed && <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">仅子文件夹</span>}
+                  {narrowed && <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">{t('仅子文件夹')}</span>}
                   <button
                     type="button"
                     aria-label={clearLabel}
@@ -172,19 +173,19 @@ export default function FolderFilterDialog({ roots, filter, onSaved, onClose }: 
                             label={
                               <span className="[overflow-wrap:anywhere]">
                                 {sub.rel}
-                                <HoverTip label={rootOn ? abbreviatePath(base + sub.rel) : `勾选「${name}」后生效`} wrap />
+                                <HoverTip label={rootOn ? abbreviatePath(base + sub.rel) : t('勾选「{name}」后生效', { name })} wrap />
                               </span>
                             }
                           />
                         </div>
                         <button
                           type="button"
-                          aria-label="从列表中移除"
+                          aria-label={t('从列表中移除')}
                           onClick={() => setEntries((prev) => prev.filter((e) => e !== sub))}
                           className={`relative ${ROW_ICON_BUTTON}`}
                         >
                           <CloseIcon className="h-4 w-4" />
-                          <HoverTip label="从列表中移除" />
+                          <HoverTip label={t('从列表中移除')} />
                         </button>
                       </div>
                     ))}
@@ -195,7 +196,7 @@ export default function FolderFilterDialog({ roots, filter, onSaved, onClose }: 
                       className="-ml-1.5 flex items-center gap-2 rounded-lg px-1.5 py-2 text-[13px] text-gray-500 transition hover:bg-black/[0.04] hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-400 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
                     >
                       <PlusIcon className="h-4 w-4" />
-                      添加子文件夹
+                      {t('添加子文件夹')}
                     </button>
                   </div>
                 )}
@@ -206,10 +207,10 @@ export default function FolderFilterDialog({ roots, filter, onSaved, onClose }: 
 
         <div className="flex shrink-0 gap-2 px-6 pb-6 pt-4">
           <button type="button" className={`whitespace-nowrap max-sm:px-3 ${BUTTON}`} onClick={() => setEntries((prev) => prev.map((e) => ({ ...e, checked: false })))}>
-            清除勾选
+            {t('清除勾选')}
           </button>
           <button type="button" className={`ml-auto whitespace-nowrap max-sm:px-3 ${BUTTON}`} onClick={onClose}>
-            取消
+            {t('取消')}
           </button>
           {/* 不用 disabled：禁用的按钮收不到悬停，气泡出不来 */}
           <button
@@ -219,28 +220,28 @@ export default function FolderFilterDialog({ roots, filter, onSaved, onClose }: 
             onClick={save}
             className={`relative whitespace-nowrap max-sm:px-3 ${PRIMARY_BUTTON} ${anyChecked ? '' : 'cursor-not-allowed opacity-50'}`}
           >
-            保存
-            {!anyChecked && <HoverTip label="至少勾选一个文件夹" />}
+            {t('保存')}
+            {!anyChecked && <HoverTip label={t('至少勾选一个文件夹')} />}
           </button>
         </div>
 
         {/* 放在面板内：点遮罩取消时不连带关闭本弹窗 */}
         {pending?.picked.status === 'outside' && (
           <ConfirmDialog
-            title={`请选择「${folderName(pending.root.path)}」中的文件夹`}
-            message={`「${pending.picked.path}」不在「${folderName(pending.root.path)}」中。`}
-            confirmText="重新选择"
+            title={t('请选择「{name}」中的文件夹', { name: folderName(pending.root.path) })}
+            message={t('「{path}」不在「{name}」中。', { path: pending.picked.path, name: folderName(pending.root.path) })}
+            confirmText={t('重新选择')}
             onConfirm={() => pick(pending.root)}
             onCancel={() => setPending(null)}
           />
         )}
         {pending?.picked.status === 'empty' && (
           <ConfirmDialog
-            title="此文件夹中暂无已索引的文件"
-            message={'可能是空文件夹、其中的文件都被排除规则排除，或者还在扫描。\n\n仍可添加，建立索引后即可搜到其中的文件。'}
-            confirmText="仍然添加"
+            title={t('此文件夹中暂无已索引的文件')}
+            message={t('可能是空文件夹、其中的文件都被排除规则排除，或者还在扫描。\n\n仍可添加，建立索引后即可搜到其中的文件。')}
+            confirmText={t('仍然添加')}
             hideCancel
-            extra={{ label: '重新选择', onClick: () => pick(pending.root) }}
+            extra={{ label: t('重新选择'), onClick: () => pick(pending.root) }}
             onConfirm={() => {
               add(pending.root, pending.picked)
               setPending(null)

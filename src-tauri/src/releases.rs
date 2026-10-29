@@ -7,14 +7,14 @@ use std::time::Duration;
 
 use reqwest::{Client, StatusCode, Url, redirect};
 use rummage_core::proxy::Route;
-use rummage_proto::{ApiError, Reply, Request};
+use rummage_proto::{ApiError, Reply, Request, tr, trs};
 use tauri::{AppHandle, Runtime};
 
 use crate::core;
 use crate::search::{error, unexpected};
 
 /// 与 `src/lib/releaseUpdates.ts` 的 `RELEASE_REPO` 保持一致
-const RELEASE_REPO: &str = "CookSleep/Rummage";
+const RELEASE_REPO: &str = "devuterian/Rummage";
 /// 与 `src/lib/releaseUpdates.ts` 的 `RELEASES_PER_PAGE` 保持一致，前端据此判断是否还有下一页
 const PER_PAGE: u32 = 10;
 const MAX_BODY: usize = 2 << 20;
@@ -28,7 +28,11 @@ pub async fn proxy_route<R: Runtime>(app: &AppHandle<R>) -> Result<Route, ApiErr
         Ok(other) => Err(unexpected(&other)),
         Err(err) if err == core::unavailable() => Err(error(
             ApiError::UNAVAILABLE,
-            "后台服务未连接，无法读取代理设置，请稍后再试。",
+            trs!(
+                "后台服务未连接，无法读取代理设置，请稍后再试。",
+                "백그라운드 서비스에 연결되지 않아 프록시 설정을 읽을 수 없습니다. 잠시 후 다시 시도하십시오.",
+                "The background service is not connected, so the proxy settings can't be read. Try again in a moment."
+            ),
         )),
         Err(err) => Err(err),
     }
@@ -61,18 +65,41 @@ pub async fn fetch_releases<R: Runtime>(app: AppHandle<R>, page: u32) -> Result<
         .and_then(|b| b.build())
         .map_err(|err| {
             log::error!("无法创建检查更新用的网络客户端：{err}");
-            error(NETWORK, "无法创建网络连接，请检查代理设置后重试。")
+            error(
+                NETWORK,
+                trs!(
+                    "无法创建网络连接，请检查代理设置后重试。",
+                    "네트워크 연결을 만들 수 없습니다. 프록시 설정을 확인한 뒤 다시 시도하십시오.",
+                    "Couldn't create a network connection. Check the proxy settings and try again."
+                ),
+            )
         })?;
     let connect_error = |err: reqwest::Error| {
         log::warn!("检查更新时网络出错：{err:?}");
         let msg = if route.proxies(&url) && err.is_connect() {
-            "无法连接代理服务器，请检查代理设置。"
+            trs!(
+                "无法连接代理服务器，请检查代理设置。",
+                "프록시 서버에 연결할 수 없습니다. 프록시 설정을 확인하십시오.",
+                "Couldn't connect to the proxy server. Check the proxy settings."
+            )
         } else if err.is_timeout() {
-            "连接 GitHub 超时，请检查网络或代理设置。"
+            trs!(
+                "连接 GitHub 超时，请检查网络或代理设置。",
+                "GitHub 연결 시간이 초과되었습니다. 네트워크나 프록시 설정을 확인하십시오.",
+                "Connection to GitHub timed out. Check your network or proxy settings."
+            )
         } else if err.is_body() || err.is_decode() {
-            "读取版本信息时连接中断，请重试。"
+            trs!(
+                "读取版本信息时连接中断，请重试。",
+                "버전 정보를 읽는 중 연결이 끊겼습니다. 다시 시도하십시오.",
+                "The connection dropped while reading version information. Try again."
+            )
         } else {
-            "无法连接 GitHub，请检查网络或代理设置。"
+            trs!(
+                "无法连接 GitHub，请检查网络或代理设置。",
+                "GitHub에 연결할 수 없습니다. 네트워크나 프록시 설정을 확인하십시오.",
+                "Couldn't connect to GitHub. Check your network or proxy settings."
+            )
         };
         error(NETWORK, msg)
     };
@@ -93,18 +120,37 @@ pub async fn fetch_releases<R: Runtime>(app: AppHandle<R>, page: u32) -> Result<
         .get("x-ratelimit-remaining")
         .is_some_and(|v| v.as_bytes() == b"0");
     if status == StatusCode::TOO_MANY_REQUESTS || (status == StatusCode::FORBIDDEN && exhausted) {
-        return Err(error(NETWORK, "GitHub 请求过于频繁，请稍后再试。"));
+        return Err(error(
+            NETWORK,
+            trs!(
+                "GitHub 请求过于频繁，请稍后再试。",
+                "GitHub 요청이 너무 많습니다. 잠시 후 다시 시도하십시오.",
+                "Too many requests to GitHub. Try again later."
+            ),
+        ));
     }
     if !status.is_success() {
         log::warn!("检查更新时 GitHub 返回 {status}");
         return Err(error(
             NETWORK,
-            format!("GitHub 返回错误（HTTP {}），请稍后再试。", status.as_u16()),
+            tr!(
+                "GitHub 返回错误（HTTP {}），请稍后再试。",
+                "GitHub에서 오류를 반환했습니다(HTTP {}). 잠시 후 다시 시도하십시오.",
+                "GitHub returned an error (HTTP {}). Try again later.",
+                status.as_u16()
+            ),
         ));
     }
     let too_large = || {
         log::warn!("版本信息超过 {MAX_BODY} 字节，已放弃读取");
-        error(NETWORK, "版本信息过大，无法读取。")
+        error(
+            NETWORK,
+            trs!(
+                "版本信息过大，无法读取。",
+                "버전 정보가 너무 커서 읽을 수 없습니다.",
+                "The version information is too large to read."
+            ),
+        )
     };
     if res.content_length().is_some_and(|n| n > MAX_BODY as u64) {
         return Err(too_large());
@@ -116,5 +162,14 @@ pub async fn fetch_releases<R: Runtime>(app: AppHandle<R>, page: u32) -> Result<
         }
         body.extend_from_slice(&chunk);
     }
-    String::from_utf8(body).map_err(|_| error(NETWORK, "版本信息的格式不正确。"))
+    String::from_utf8(body).map_err(|_| {
+        error(
+            NETWORK,
+            trs!(
+                "版本信息的格式不正确。",
+                "버전 정보 형식이 올바르지 않습니다.",
+                "The version information is malformed."
+            ),
+        )
+    })
 }

@@ -32,7 +32,7 @@ pub(super) fn respond(state: &Arc<State>, body: Request) -> Result<Reply, ApiErr
         }
         Request::GetAppearance => {
             let raw = db(state)?.meta_get(APPEARANCE_KEY).map_err(unavailable)?;
-            let appearance = raw
+            let appearance: Appearance = raw
                 .and_then(|raw| {
                     serde_json::from_str(&raw)
                         .inspect_err(|err| log::warn!("忽略格式不正确的外观设置：{err}"))

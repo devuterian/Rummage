@@ -1,4 +1,4 @@
-package com.cooksleep.rummage.storage
+package com.marierie.rummage.storage
 
 /** 文档 ID 与真实路径的换算、复制时的文件名；不调用 Android 接口，可在 JVM 上测试 */
 object StoragePaths {

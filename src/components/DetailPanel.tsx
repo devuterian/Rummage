@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import type { FileInfo, SearchHit } from '../types'
 import { copyWithToast } from '../lib/clipboard'
 import { errorMessage } from '../lib/errors'
+import { t } from '../lib/i18n'
 import { canFindSimilar, formatSize, formatTime, indexStateText, kindLabel, matchPercent, matchText, openAtText } from '../lib/format'
 import { hitPosition } from '../lib/media'
 import { isAndroid, isTauri } from '../lib/platform'
@@ -85,7 +86,7 @@ function Details({ hit, query, onOpen, onReveal, onSimilar, onShare }: DetailsPr
       })
       .catch((err) => {
         console.warn('无法读取文件详情：', err)
-        if (active) setError(errorMessage(err, '无法读取文件详情。'))
+        if (active) setError(errorMessage(err, t('无法读取文件详情。')))
       })
     return () => {
       active = false
@@ -130,33 +131,33 @@ function Details({ hit, query, onOpen, onReveal, onSimilar, onShare }: DetailsPr
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-5 pb-5 [scrollbar-gutter:stable_both-edges]">
         <Preview hit={hit} query={query} onOpen={onOpen} />
 
-        <Section title="文件">
-          <Row label="路径">
+        <Section title={t('文件')}>
+          <Row label={t('路径')}>
             <button type="button" data-selectable-text onClick={(e) => copyField(e.currentTarget, hit.path, '路径')} className={COPY_TEXT}>
               <PathText path={hit.path} />
-              <HoverTip label="复制路径" />
+              <HoverTip label={t('复制路径')} />
             </button>
           </Row>
-          <Row label="类型">{kindLabel(hit.kind)}{info?.ext ? `（.${info.ext}）` : ''}</Row>
-          <Row label="大小">{formatSize(info?.size ?? hit.size)}</Row>
-          <Row label="修改时间">{formatTime(info?.mtime ?? hit.mtime)}</Row>
-          {(hit.kind === 'image' || hit.kind === 'video') && width && height ? <Row label="尺寸">{width} × {height}</Row> : null}
-          {hit.offline && <Row label="位置">{hit.missing ? '找不到所在的文件夹' : '设备未连接'}</Row>}
-          {hit.cloud && <Row label="位置">仅在云端</Row>}
+          <Row label={t('类型')}>{kindLabel(hit.kind)}{info?.ext ? t('（.{ext}）', { ext: info.ext }) : ''}</Row>
+          <Row label={t('大小')}>{formatSize(info?.size ?? hit.size)}</Row>
+          <Row label={t('修改时间')}>{formatTime(info?.mtime ?? hit.mtime)}</Row>
+          {(hit.kind === 'image' || hit.kind === 'video') && width && height ? <Row label={t('尺寸')}>{width} × {height}</Row> : null}
+          {hit.offline && <Row label={t('位置')}>{hit.missing ? t('找不到所在的文件夹') : t('设备未连接')}</Row>}
+          {hit.cloud && <Row label={t('位置')}>{t('仅在云端')}</Row>}
         </Section>
 
-        <Section title="索引">
-          {match && <Row label="匹配">{match}</Row>}
-          {matchPercent(hit) && <Row label="匹配度">{matchPercent(hit)}</Row>}
+        <Section title={t('索引')}>
+          {match && <Row label={t('匹配')}>{match}</Row>}
+          {matchPercent(hit) && <Row label={t('匹配度')}>{matchPercent(hit)}</Row>}
           {error ? (
-            <Row label="状态">{renderMessage(error, 'font-semibold')}</Row>
+            <Row label={t('状态')}>{renderMessage(error, 'font-semibold')}</Row>
           ) : !info ? (
-            <Row label="状态">读取中</Row>
+            <Row label={t('状态')}>{t('读取中')}</Row>
           ) : (
             <>
-              <Row label="状态">{renderMessage(indexStateText(info), 'font-semibold')}</Row>
-              {info.indexedAt !== null && <Row label="索引时间">{formatTime(info.indexedAt)}</Row>}
-              {info.segments > 0 && <Row label="分段">{info.segments} 段</Row>}
+              <Row label={t('状态')}>{renderMessage(indexStateText(info), 'font-semibold')}</Row>
+              {info.indexedAt !== null && <Row label={t('索引时间')}>{formatTime(info.indexedAt)}</Row>}
+              {info.segments > 0 && <Row label={t('分段')}>{t('{n} 段', { n: info.segments })}</Row>}
             </>
           )}
         </Section>
@@ -164,24 +165,24 @@ function Details({ hit, query, onOpen, onReveal, onSimilar, onShare }: DetailsPr
 
       <div className="flex items-center gap-1 border-t border-black/5 px-5 pb-[calc(0.75rem+var(--safe-bottom))] pt-3 dark:border-white/[0.06]">
         {canFindSimilar(hit) && (
-          <button type="button" onClick={onSimilar} aria-label="找相似" className={ICON_BUTTON}>
+          <button type="button" onClick={onSimilar} aria-label={t('找相似')} className={ICON_BUTTON}>
             <SimilarIcon kind={hit.kind} className="h-4 w-4" />
-            <HoverTip label="找相似" />
+            <HoverTip label={t('找相似')} />
           </button>
         )}
         {onShare && (
-          <button type="button" onClick={onShare} aria-label="分享" className={ICON_BUTTON}>
+          <button type="button" onClick={onShare} aria-label={t('分享')} className={ICON_BUTTON}>
             <ShareIcon className="h-4 w-4" />
-            <HoverTip label="分享" />
+            <HoverTip label={t('分享')} />
           </button>
         )}
-        <button type="button" onClick={onReveal} aria-label={REVEAL_TEXT} className={ICON_BUTTON}>
+        <button type="button" onClick={onReveal} aria-label={t(REVEAL_TEXT)} className={ICON_BUTTON}>
           <FolderIcon className="h-4 w-4" />
-          <HoverTip label={REVEAL_TEXT} />
+          <HoverTip label={t(REVEAL_TEXT)} />
         </button>
         <button type="button" onClick={onOpen} className="ml-auto inline-flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white transition duration-200 hover:bg-blue-600">
           <OpenIcon className="h-4 w-4" />
-          {at && canJump ? openAtText(at) : '打开'}
+          {at && canJump ? openAtText(at) : t('打开')}
         </button>
       </div>
     </>
@@ -220,7 +221,7 @@ export default function DetailPanel({ hit, query, overlay, viewportHeight, conne
   const longImageMax = Math.max(320, viewportHeight - 220)
   return (
     <aside
-      aria-label="详情"
+      aria-label={t('详情')}
       style={{ ...(overlay ? {} : { width: PANEL_WIDTH }), '--long-image-max': `${longImageMax}px` } as CSSProperties & { '--long-image-max': string }}
       className={`fixed bottom-0 right-0 top-0 z-30 flex max-w-full flex-col ${
         overlay ? 'left-0 bg-gray-50 dark:bg-gray-950' : 'border-l border-white/50 bg-white/90 backdrop-blur-xl ring-1 ring-black/5 dark:border-white/[0.08] dark:bg-gray-900/90 dark:ring-white/10'
@@ -233,24 +234,24 @@ export default function DetailPanel({ hit, query, overlay, viewportHeight, conne
             <KindIcon kind={hit.kind} className="mt-2 h-5 w-5 flex-shrink-0 text-gray-400" />
             <button type="button" onClick={(e) => copyField(e.currentTarget, hit.name, '文件名')} className={`mt-2 min-w-0 flex-1 break-all text-sm font-semibold text-gray-800 dark:text-gray-100 ${COPY_TEXT}`}>
               {hit.name}
-              <HoverTip label="复制文件名" />
+              <HoverTip label={t('复制文件名')} />
             </button>
           </>
         )}
         <button
           type="button"
           onClick={onHide}
-          aria-label={overlay ? '关闭详情' : '收起详情栏'}
+          aria-label={overlay ? t('关闭详情') : t('收起详情栏')}
           className="ml-auto flex-shrink-0 rounded-full border border-transparent p-2 text-gray-400 transition duration-200 hover:bg-black/5 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-200"
         >
           {overlay ? <CloseIcon className="h-4 w-4" /> : <PanelCollapseIcon className="h-4 w-4" />}
-          <HoverTip label={overlay ? '关闭（Esc）' : '收起（空格）'} />
+          <HoverTip label={overlay ? t('关闭（Esc）') : t('收起（空格）')} />
         </button>
       </div>
       {hit ? (
         <Details key={`${hit.fileId}-${connected}`} hit={hit} query={query} onOpen={onOpen} onReveal={onReveal} onSimilar={onSimilar} onShare={onShare} />
       ) : (
-        <p className="flex flex-1 items-center justify-center px-5 pb-16 text-sm text-gray-400 dark:text-gray-500">选择一个结果查看详情</p>
+        <p className="flex flex-1 items-center justify-center px-5 pb-16 text-sm text-gray-400 dark:text-gray-500">{t('选择一个结果查看详情')}</p>
       )}
     </aside>
   )

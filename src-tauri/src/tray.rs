@@ -7,7 +7,7 @@
 use std::sync::{Condvar, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use rummage_proto::{IndexState, IndexStatus, PauseReason, Reply, Request};
+use rummage_proto::{IndexState, IndexStatus, PauseReason, Reply, Request, tr, trs};
 use tauri::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, Runtime};
@@ -62,6 +62,8 @@ pub fn create<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         .spawn(move || {
             // 上次设置的菜单状态与悬停提示，没有变化时不重复设置
             let mut last: Option<(View, String)> = None;
+            // 界面语言变化（`settings::set_appearance`、连上核心时）后按新语言重建菜单
+            let mut last_lang = rummage_proto::i18n::lang();
             loop {
                 let (status, from_refresh) = {
                     let mut next = NEXT.lock().expect(LOCK);
@@ -72,6 +74,11 @@ pub fn create<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
                         next = WAKE.wait(next).expect(LOCK);
                     }
                 };
+                let lang = rummage_proto::i18n::lang();
+                if lang != last_lang {
+                    last_lang = lang;
+                    last = None;
+                }
                 let view = view(status.as_ref());
                 let prev_view = last.as_ref().map(|p| &p.0);
                 if from_refresh && prev_view.is_some_and(|v| *v != View::Unknown && *v == view) {
@@ -105,7 +112,13 @@ fn menu<R: Runtime>(app: &AppHandle<R>, view: &View) -> tauri::Result<Menu<R>> {
     let menu = Menu::with_items(
         app,
         &[
-            &MenuItem::with_id(app, "show", "显示 Rummage", true, None::<&str>)?,
+            &MenuItem::with_id(
+                app,
+                "show",
+                trs!("显示 Rummage", "Rummage 열기", "Show Rummage"),
+                true,
+                None::<&str>,
+            )?,
             &PredefinedMenuItem::separator(app)?,
         ],
     )?;
@@ -121,24 +134,52 @@ fn menu<R: Runtime>(app: &AppHandle<R>, view: &View) -> tauri::Result<Menu<R>> {
         menu.append(&MenuItem::with_id(
             app,
             "resume",
-            "恢复索引",
+            trs!("恢复索引", "색인 계속", "Resume indexing"),
             true,
             None::<&str>,
         )?)?;
     } else {
         menu.append(&Submenu::with_items(
             app,
-            "暂停索引",
+            trs!("暂停索引", "색인 일시정지", "Pause indexing"),
             *view != View::Unknown,
             &[
-                &MenuItem::with_id(app, "pause_hour", "暂停 1 小时", true, None::<&str>)?,
-                &MenuItem::with_id(app, "pause_tomorrow", "暂停到明天", true, None::<&str>)?,
-                &MenuItem::with_id(app, "pause_manual", "直到手动恢复", true, None::<&str>)?,
+                &MenuItem::with_id(
+                    app,
+                    "pause_hour",
+                    trs!("暂停 1 小时", "1시간 일시정지", "Pause for 1 hour"),
+                    true,
+                    None::<&str>,
+                )?,
+                &MenuItem::with_id(
+                    app,
+                    "pause_tomorrow",
+                    trs!("暂停到明天", "내일까지 일시정지", "Pause until tomorrow"),
+                    true,
+                    None::<&str>,
+                )?,
+                &MenuItem::with_id(
+                    app,
+                    "pause_manual",
+                    trs!(
+                        "直到手动恢复",
+                        "직접 계속할 때까지",
+                        "Until resumed manually"
+                    ),
+                    true,
+                    None::<&str>,
+                )?,
             ],
         )?)?;
     }
     menu.append(&PredefinedMenuItem::separator(app)?)?;
-    menu.append(&MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?)?;
+    menu.append(&MenuItem::with_id(
+        app,
+        "quit",
+        trs!("退出", "종료", "Quit"),
+        true,
+        None::<&str>,
+    )?)?;
     Ok(menu)
 }
 
@@ -213,15 +254,17 @@ fn view(status: Option<&IndexStatus>) -> View {
         None => View::Unknown,
         Some(None) => View::Running,
         // 已到期、核心还没清除（每 5 秒判定一次）
-        Some(Some(PauseReason::Manual { until: Some(ms) })) if ms <= now => {
-            View::Manual("即将恢复索引".into())
-        }
+        Some(Some(PauseReason::Manual { until: Some(ms) })) if ms <= now => View::Manual(tr!(
+            "即将恢复索引",
+            "곧 색인 계속",
+            "Resuming indexing soon"
+        )),
         Some(Some(PauseReason::Manual { until })) => {
             View::Manual(match until.map(platform::local_time_at).transpose() {
                 Ok(t) => manual_text(t, platform::local_time()),
                 Err(err) => {
                     log::warn!("无法换算暂停到期时间：{err}");
-                    "已手动暂停".into()
+                    tr!("已手动暂停", "직접 일시정지함", "Paused manually")
                 }
             })
         }
@@ -259,28 +302,73 @@ fn apply<R: Runtime>(
 /// 文字与界面的索引提示（`src/components/IndexHint.tsx`）一致
 fn auto_text(reason: PauseReason) -> &'static str {
     match reason {
-        PauseReason::Manual { .. } => "已手动暂停",
-        PauseReason::Sleeping => "系统即将睡眠或刚唤醒，稍后继续",
-        PauseReason::DiskLow { .. } => "磁盘空间不足，已暂停",
-        PauseReason::Quota => "已达到系统每天 6 小时的后台运行上限",
-        PauseReason::Hot => "手机温度过高，已暂停",
-        PauseReason::Battery => "未接电源，已暂停",
-        PauseReason::LowBattery => "电量低，已暂停",
-        PauseReason::ScreenOn => "屏幕亮着，已暂停",
-        PauseReason::Fullscreen => "有全屏程序在运行，已暂停",
+        PauseReason::Manual { .. } => trs!("已手动暂停", "직접 일시정지함", "Paused manually"),
+        PauseReason::Sleeping => trs!(
+            "系统即将睡眠或刚唤醒，稍后继续",
+            "시스템 절전 직전이거나 막 깨어남, 잠시 후 계속",
+            "System is about to sleep or just woke up, resuming shortly"
+        ),
+        PauseReason::DiskLow { .. } => trs!(
+            "磁盘空间不足，已暂停",
+            "디스크 공간 부족으로 일시정지됨",
+            "Paused: low disk space"
+        ),
+        PauseReason::Quota => trs!(
+            "已达到系统每天 6 小时的后台运行上限",
+            "시스템의 하루 6시간 백그라운드 실행 한도에 도달함",
+            "Reached the system's 6-hour daily background limit"
+        ),
+        PauseReason::Hot => trs!(
+            "手机温度过高，已暂停",
+            "휴대폰 온도가 높아 일시정지됨",
+            "Paused: phone is too hot"
+        ),
+        PauseReason::Battery => trs!(
+            "未接电源，已暂停",
+            "전원이 연결되지 않아 일시정지됨",
+            "Paused: not plugged in"
+        ),
+        PauseReason::LowBattery => trs!(
+            "电量低，已暂停",
+            "배터리 부족으로 일시정지됨",
+            "Paused: low battery"
+        ),
+        PauseReason::ScreenOn => trs!(
+            "屏幕亮着，已暂停",
+            "화면이 켜져 있어 일시정지됨",
+            "Paused: screen is on"
+        ),
+        PauseReason::Fullscreen => trs!(
+            "有全屏程序在运行，已暂停",
+            "전체 화면 프로그램 실행 중이라 일시정지됨",
+            "Paused: a full-screen app is running"
+        ),
     }
 }
 
 /// `until`、`today` 为本地时间 `[年, 月, 日, 时, 分, 秒]`；到期在今天时只写时刻
 fn manual_text(until: Option<[u16; 6]>, today: [u16; 6]) -> String {
     let Some(t) = until else {
-        return "已暂停，直到手动恢复".into();
+        return tr!(
+            "已暂停，直到手动恢复",
+            "일시정지됨, 직접 계속할 때까지",
+            "Paused until resumed manually"
+        );
     };
     let clock = format!("{}:{:02}", t[3], t[4]);
     if t[..3] == today[..3] {
-        return format!("已暂停到 {clock}");
+        return tr!(
+            "已暂停到 {clock}",
+            "{clock}까지 일시정지됨",
+            "Paused until {clock}"
+        );
     }
-    format!("已暂停到 {}月{}日 {clock}", t[1], t[2])
+    let (month, day) = (t[1], t[2]);
+    tr!(
+        "已暂停到 {month}月{day}日 {clock}",
+        "{month}월 {day}일 {clock}까지 일시정지됨",
+        "Paused until {month}/{day} {clock}"
+    )
 }
 
 /// 与界面的索引提示一样，有待处理的文件时显示本轮的进度（`IndexStatus::round`）
@@ -291,16 +379,20 @@ fn tooltip(status: Option<&IndexStatus>) -> String {
     else {
         return "Rummage".into();
     };
-    let what = if s.paused.is_some() {
-        "索引已暂停"
+    let (done, total) = (thousands(r.done), thousands(r.total));
+    if s.paused.is_some() {
+        tr!(
+            "Rummage：索引已暂停 {done} / {total}",
+            "Rummage: 색인 일시정지됨 {done} / {total}",
+            "Rummage: indexing paused {done} / {total}"
+        )
     } else {
-        "正在建立索引"
-    };
-    format!(
-        "Rummage：{what} {} / {}",
-        thousands(r.done),
-        thousands(r.total)
-    )
+        tr!(
+            "Rummage：正在建立索引 {done} / {total}",
+            "Rummage: 색인 생성 중 {done} / {total}",
+            "Rummage: indexing {done} / {total}"
+        )
+    }
 }
 
 fn thousands(n: u64) -> String {

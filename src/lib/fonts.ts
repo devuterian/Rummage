@@ -1,5 +1,5 @@
 import type { Appearance, FontMode } from '../types'
-import { getLang, isLang } from './i18n'
+import { getLang, isLang, t } from './i18n'
 import { readLocal, writeLocal } from './storage'
 
 export type FontSlot = 'ui' | 'mono'
@@ -62,8 +62,8 @@ export function applyAppearance(a: Appearance) {
 }
 
 export function getFontLabel(mode: FontMode, name = '') {
-  if (mode === 'custom') return name || '自定义'
-  return mode === 'builtin' ? '内置字体' : '系统字体'
+  if (mode === 'custom') return name || t('自定义')
+  return mode === 'builtin' ? t('内置字体') : t('系统字体')
 }
 
 /** 读本地缓存；没有、读不到或内容不对时用内置字体 */

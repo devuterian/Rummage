@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import type { ModelFileStatus, SetupStatus } from '../../types'
 import { errorMessage } from '../../lib/errors'
 import { formatSize } from '../../lib/format'
+import { t } from '../../lib/i18n'
 import ConfirmDialog from '../ConfirmDialog'
 import { isAndroid } from '../../lib/platform'
 import { ImportRow, type ModelInfo, ModelRow, modelInfos, modelLabel, PausedProgress, PauseResumeButton, rowFile, type SourceChoice, SourcePicker, TaskProgress, taskMessageClass, toSource } from '../onboarding/ModelDownload'
@@ -62,7 +63,7 @@ export default function ModelsTab({ setup, acted, onAct }: Props) {
     onAct()
     return invoke(cmd, args).catch((err) => {
       console.warn(`${cmd} 失败：`, err)
-      showToast(errorMessage(err, '操作失败，请重试。'), 'error')
+      showToast(errorMessage(err, t('操作失败，请重试。')), 'error')
     })
   }
 
@@ -74,15 +75,16 @@ export default function ModelsTab({ setup, acted, onAct }: Props) {
   // 删除确认中的模型
   const infos = modelInfos(setup)
   const delFile = confirmDelete ? rowFile(setup, confirmDelete) : setup.model
-  const delName = confirmDelete?.label ?? ''
+  // 模型名称在 `modelInfos` 的常量中，按界面语言显示
+  const delName = confirmDelete ? t(confirmDelete.label) : ''
   // 另一个模型可用时，删除这个只是换用另一个（Android）
   const other = isAndroid && confirmDelete ? infos.find((m) => m.label !== confirmDelete.label && rowFile(setup, m).ready) : undefined
   const delPartial = !delFile.ready && delFile.partialBytes > 0
   const delEffect = confirmDelete?.mmproj
-    ? '已识别的图片、音频和视频仍可用文字搜索，但不能再用图片搜索。新增或修改的图片、音频和视频只能按文件名搜索。\n\n重新下载或导入后会自动识别。'
+    ? t('已识别的图片、音频和视频仍可用文字搜索，但不能再用图片搜索。新增或修改的图片、音频和视频只能按文件名搜索。\n\n重新下载或导入后会自动识别。')
     : other
-      ? `之后改用${other.label}，已建立的索引会在后台按${other.label}重建，重建期间仍可搜索。`
-      : '删除后不能按内容搜索，只显示文件名或正文中含有搜索词的结果，也不再识别新的文件内容。\n\n已建立的索引保留，重新下载或导入后恢复。'
+      ? t('之后改用{name}，已建立的索引会在后台按{name}重建，重建期间仍可搜索。', { name: t(other.label) })
+      : t('删除后不能按内容搜索，只显示文件名或正文中含有搜索词的结果，也不再识别新的文件内容。\n\n已建立的索引保留，重新下载或导入后恢复。')
 
   const args = (m: ModelInfo) => ({ mmproj: m.mmproj, npu: isAndroid && m.npu })
   const startDownload = (m: ModelInfo) => call('download_models', { source: toSource(source), ...args(m) })
@@ -94,18 +96,18 @@ export default function ModelsTab({ setup, acted, onAct }: Props) {
     )
     const remove = (
       <button type="button" className={SMALL_DANGER_BUTTON} disabled={blocked} onClick={() => setConfirmDelete(m)}>
-        删除
+        {t('删除')}
       </button>
     )
     if (!file.ready) {
       // 下载了一部分的在下方显示暂停的进度，从那里继续
-      if (file.partialBytes === 0) return download('下载')
+      if (file.partialBytes === 0) return download(t('下载'))
       return remove
     }
     return (
       <>
         {file.verified === false ? (
-          download('重新下载')
+          download(t('重新下载'))
         ) : (
           <button
             type="button"
@@ -113,7 +115,7 @@ export default function ModelsTab({ setup, acted, onAct }: Props) {
             disabled={running}
             onClick={() => call('verify_model', args(m))}
           >
-            校验
+            {t('校验')}
           </button>
         )}
         {remove}
@@ -124,8 +126,8 @@ export default function ModelsTab({ setup, acted, onAct }: Props) {
   return (
     <div className="space-y-8">
       <section className="space-y-3">
-        <h4 className={SECTION_TITLE}>模型</h4>
-        <p className={ROW_DESC}>识别文件内容需要本地模型，下载一次即可，之后完全离线使用。</p>
+        <h4 className={SECTION_TITLE}>{t('模型')}</h4>
+        <p className={ROW_DESC}>{t('识别文件内容需要本地模型，下载一次即可，之后完全离线使用。')}</p>
         <div className={CARD}>
           {infos.map((m) => {
             const file = rowFile(setup, m)
@@ -145,7 +147,7 @@ export default function ModelsTab({ setup, acted, onAct }: Props) {
             ) : (
               task.kind !== 'delete' && (
                 <button type="button" className={`flex-shrink-0 ${BUTTON}`} onClick={() => call('cancel_model_task')}>
-                  取消
+                  {t('取消')}
                 </button>
               )
             )}
@@ -169,19 +171,19 @@ export default function ModelsTab({ setup, acted, onAct }: Props) {
             {task.message}
           </p>
         )}
-        {setup.selftest.running && <p className={ROW_DESC}>设备检测正在进行，完成后才能下载、导入或删除模型</p>}
+        {setup.selftest.running && <p className={ROW_DESC}>{t('设备检测正在进行，完成后才能下载、导入或删除模型')}</p>}
       </section>
 
       <section className="space-y-3">
-        <h4 className={SECTION_TITLE}>下载</h4>
+        <h4 className={SECTION_TITLE}>{t('下载')}</h4>
         <SourcePicker value={source} onChange={setSource} disabled={running} />
       </section>
 
       {confirmDelete && (
         <ConfirmDialog
-          title={delPartial ? '删除已下载的部分' : `删除${delName}`}
-          message={delPartial ? `将删除${delName}已下载的 ${formatSize(delFile.partialBytes)}，之后需要从头下载。` : `将删除${delName}，释放约 ${formatSize(delFile.bytes)} 空间。\n\n${delEffect}`}
-          confirmText="删除"
+          title={delPartial ? t('删除已下载的部分') : t('删除{name}', { name: delName })}
+          message={delPartial ? t('将删除{name}已下载的 {size}，之后需要从头下载。', { name: delName, size: formatSize(delFile.partialBytes) }) : `${t('将删除{name}，释放约 {size} 空间。', { name: delName, size: formatSize(delFile.bytes) })}\n\n${delEffect}`}
+          confirmText={t('删除')}
           danger
           onConfirm={() => {
             setConfirmDelete(null)

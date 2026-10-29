@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import type { ProxyMode, ProxySetting } from '../../types'
 import { errorMessage } from '../../lib/errors'
+import { t } from '../../lib/i18n'
 import { EyeIcon, EyeOffIcon } from '../icons'
 import Select from '../Select'
 import { ERROR_TEXT, INPUT, segmentClass, SEGMENTS } from './styles'
@@ -42,7 +43,7 @@ export default function ProxyForm({ saved, onSaved, label }: { saved: ProxySetti
       })
       .catch((err) => {
         console.warn('保存代理设置失败：', err)
-        setError(errorMessage(err, '保存代理设置失败。'))
+        setError(errorMessage(err, t('保存代理设置失败。')))
         if (next.mode !== 'custom') return
         setMode(saved.mode)
         setEditing(true)
@@ -63,14 +64,14 @@ export default function ProxyForm({ saved, onSaved, label }: { saved: ProxySetti
         <div className="flex items-center justify-between gap-3">
           <span className="block text-sm text-gray-600 dark:text-gray-300">{label}</span>
           <div className="min-w-0 max-w-[60%]">
-            <Select value={mode} onChange={pick} options={MODES} />
+            <Select value={mode} onChange={pick} options={MODES.map((m) => ({ value: m.value, label: t(m.label) }))} />
           </div>
         </div>
       ) : (
         <div className={SEGMENTS}>
           {MODES.map((m) => (
             <button key={m.value} type="button" className={segmentClass(mode === m.value)} onClick={() => pick(m.value)}>
-              {m.label}
+              {t(m.label)}
             </button>
           ))}
         </div>
@@ -90,7 +91,7 @@ export default function ProxyForm({ saved, onSaved, label }: { saved: ProxySetti
             type={hasAuth && !showUrl ? 'password' : 'text'}
             spellCheck={false}
             placeholder="http://127.0.0.1:7890"
-            aria-label="代理地址"
+            aria-label={t('代理地址')}
             className={`${INPUT} ${hasAuth ? 'pr-10' : ''}`}
           />
           {hasAuth && (
@@ -99,7 +100,7 @@ export default function ProxyForm({ saved, onSaved, label }: { saved: ProxySetti
               onClick={() => setShowUrl((v) => !v)}
               className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 transition-colors hover:text-gray-600"
               tabIndex={-1}
-              aria-label={showUrl ? '隐藏代理地址' : '显示代理地址'}
+              aria-label={showUrl ? t('隐藏代理地址') : t('显示代理地址')}
             >
               {showUrl ? <EyeIcon className="h-4 w-4" /> : <EyeOffIcon className="h-4 w-4" />}
             </button>
@@ -109,10 +110,10 @@ export default function ProxyForm({ saved, onSaved, label }: { saved: ProxySetti
       {error && <p data-selectable-text className={ERROR_TEXT}>{error}</p>}
       <p className="text-xs text-gray-500 dark:text-gray-500">
         {showInput
-          ? '只支持 HTTP 代理，可带用户名和密码。本机地址始终直连。'
+          ? t('只支持 HTTP 代理，可带用户名和密码。本机地址始终直连。')
           : mode === 'none'
-            ? '下载模型和检查更新不经过代理。'
-            : '下载模型和检查更新使用的代理，修改后立即生效。系统使用自动配置脚本（PAC）时，请改为自定义并填写代理地址。'}
+            ? t('下载模型和检查更新不经过代理。')
+            : t('下载模型和检查更新使用的代理，修改后立即生效。系统使用自动配置脚本（PAC）时，请改为自定义并填写代理地址。')}
       </p>
     </div>
   )

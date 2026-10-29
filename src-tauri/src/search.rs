@@ -23,7 +23,7 @@ use std::path::Path;
 
 use rummage_proto::{
     ApiError, FileInfo, FolderScope, IndexStatus, Reply, Request, SearchHit, SegmentPreview,
-    SemanticUnavailable, SimilarTo, params,
+    SemanticUnavailable, SimilarTo, params, trs,
 };
 use serde::{Deserialize, Serialize};
 use tauri::http::{Response, StatusCode, header};
@@ -101,7 +101,11 @@ pub(crate) fn unexpected(reply: &Reply) -> ApiError {
     log::error!("核心进程的回复与请求不对应：{reply:?}");
     error(
         ApiError::INTERNAL,
-        "后台服务的回复不正确，请重新启动 Rummage。",
+        trs!(
+            "后台服务的回复不正确，请重新启动 Rummage。",
+            "백그라운드 서비스의 응답이 올바르지 않습니다. Rummage를 다시 시작하십시오.",
+            "The background service sent an invalid reply. Restart Rummage."
+        ),
     )
 }
 
@@ -127,10 +131,16 @@ pub async fn search<R: Runtime>(
 ) -> Result<Results, ApiError> {
     let image_path = match image_token {
         Some(token) => {
-            let path = app
-                .state::<ImageTokens>()
-                .path(token)
-                .ok_or_else(|| error(ApiError::BAD_REQUEST, "这张图片已失效，请重新选择。"))?;
+            let path = app.state::<ImageTokens>().path(token).ok_or_else(|| {
+                error(
+                    ApiError::BAD_REQUEST,
+                    trs!(
+                        "这张图片已失效，请重新选择。",
+                        "이 이미지를 더 이상 사용할 수 없습니다. 다시 선택하십시오.",
+                        "This image is no longer available. Choose it again."
+                    ),
+                )
+            })?;
             Some(path.to_string_lossy().into_owned())
         }
         None => None,
@@ -241,21 +251,42 @@ async fn shell<R: Runtime>(
         return Err(error(
             ApiError::BAD_REQUEST,
             if info.missing {
-                "找不到文件所在的文件夹，它可能已被删除、改名或移走。"
+                trs!(
+                    "找不到文件所在的文件夹，它可能已被删除、改名或移走。",
+                    "파일이 있던 폴더를 찾을 수 없습니다. 삭제되었거나 이름이 바뀌었거나 옮겨졌을 수 있습니다.",
+                    "Couldn't find the file's folder. It may have been deleted, renamed or moved."
+                )
             } else {
-                "文件所在的设备未连接，请连接后重试。"
+                trs!(
+                    "文件所在的设备未连接，请连接后重试。",
+                    "파일이 있는 기기가 연결되지 않았습니다. 연결한 뒤 다시 시도하십시오.",
+                    "The device containing this file is not connected. Connect it and try again."
+                )
             },
         ));
     }
     let res =
         tauri::async_runtime::spawn_blocking(move || action(&info).map_err(|err| (info.path, err)))
             .await
-            .map_err(|err| error(ApiError::INTERNAL, format!("无法打开文件：{err}")))?;
+            .map_err(|err| {
+                error(
+                    ApiError::INTERNAL,
+                    rummage_proto::tr!(
+                        "无法打开文件：{err}",
+                        "파일을 열 수 없습니다: {err}",
+                        "Couldn't open the file: {err}"
+                    ),
+                )
+            })?;
     res.map_err(|(path, err)| {
         log::warn!("无法打开或显示 {path}：{err}");
         error(
             ApiError::BAD_REQUEST,
-            "无法打开这个文件，它可能已被移动或删除。",
+            trs!(
+                "无法打开这个文件，它可能已被移动或删除。",
+                "이 파일을 열 수 없습니다. 옮겨졌거나 삭제되었을 수 있습니다.",
+                "Couldn't open this file. It may have been moved or deleted."
+            ),
         )
     })
 }

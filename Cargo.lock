@@ -5143,6 +5143,7 @@ name = "rummage-datadir"
 version = "0.1.2"
 dependencies = [
  "log",
+ "rummage-proto",
  "tempfile",
  "thiserror 2.0.21",
  "windows-sys 0.61.2",
@@ -5199,6 +5200,7 @@ dependencies = [
  "globset",
  "half",
  "log",
+ "rummage-proto",
  "rusqlite",
  "serde_json",
  "tempfile",
@@ -5230,6 +5232,7 @@ dependencies = [
  "image",
  "log",
  "ndk-sys",
+ "rummage-proto",
  "serde_json",
  "thiserror 2.0.21",
  "webp",

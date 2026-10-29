@@ -73,7 +73,15 @@ impl AddedRoot {
 #[tauri::command]
 pub async fn add_root<R: Runtime>(app: AppHandle<R>) -> Result<Option<AddedRoot>, ApiError> {
     let (tx, rx) = tokio::sync::oneshot::channel();
-    crate::file_dialog(&app, "选择要索引的文件夹").pick_folder(move |dir| {
+    crate::file_dialog(
+        &app,
+        rummage_proto::trs!(
+            "选择要索引的文件夹",
+            "색인할 폴더 선택",
+            "Choose a folder to index"
+        ),
+    )
+    .pick_folder(move |dir| {
         let _ = tx.send(dir);
     });
     let Some(dir) = rx.await.ok().flatten() else {
@@ -83,7 +91,11 @@ pub async fn add_root<R: Runtime>(app: AppHandle<R>) -> Result<Option<AddedRoot>
         log::warn!("无法读取所选文件夹的路径：{err}");
         error(
             ApiError::BAD_REQUEST,
-            "无法读取所选文件夹的路径，请重新选择。",
+            rummage_proto::trs!(
+                "无法读取所选文件夹的路径，请重新选择。",
+                "선택한 폴더의 경로를 읽을 수 없습니다. 다시 선택하십시오.",
+                "Couldn't read the selected folder's path. Choose it again."
+            ),
         )
     })?;
     let body = Request::AddRoot {
@@ -153,13 +165,24 @@ const COMMON_ROOTS: &[&str] = &["DCIM", "Pictures", "Download", "Documents"];
 #[cfg(any(target_os = "android", test))]
 pub(crate) fn common_root(storage: &Path, name: &str) -> Result<PathBuf, ApiError> {
     if !COMMON_ROOTS.contains(&name) {
-        return Err(error(ApiError::BAD_REQUEST, "不支持添加这个文件夹。"));
+        return Err(error(
+            ApiError::BAD_REQUEST,
+            rummage_proto::trs!(
+                "不支持添加这个文件夹。",
+                "이 폴더는 추가할 수 없습니다.",
+                "This folder can't be added."
+            ),
+        ));
     }
     let path = storage.join(name);
     if !path.is_dir() {
         return Err(error(
             ApiError::BAD_REQUEST,
-            format!("手机存储中没有 {name} 文件夹。"),
+            rummage_proto::tr!(
+                "手机存储中没有 {name} 文件夹。",
+                "휴대폰 저장공간에 {name} 폴더가 없습니다.",
+                "There is no {name} folder in phone storage."
+            ),
         ));
     }
     Ok(path)
@@ -170,7 +193,14 @@ pub(crate) fn common_root(storage: &Path, name: &str) -> Result<PathBuf, ApiErro
 #[tauri::command]
 pub async fn import_models<R: Runtime>(app: AppHandle<R>) -> Result<bool, ApiError> {
     let (tx, rx) = tokio::sync::oneshot::channel();
-    let dialog = crate::file_dialog(&app, "选择模型文件").add_filter("GGUF 模型", &["gguf"]);
+    let dialog = crate::file_dialog(
+        &app,
+        rummage_proto::trs!("选择模型文件", "모델 파일 선택", "Choose model files"),
+    )
+    .add_filter(
+        rummage_proto::trs!("GGUF 模型", "GGUF 모델", "GGUF models"),
+        &["gguf"],
+    );
     dialog.pick_files(move |files| {
         let _ = tx.send(files);
     });
@@ -187,7 +217,11 @@ pub async fn import_models<R: Runtime>(app: AppHandle<R>) -> Result<bool, ApiErr
     if paths.is_empty() {
         return Err(error(
             ApiError::BAD_REQUEST,
-            "无法读取所选文件的路径，请重新选择。",
+            rummage_proto::trs!(
+                "无法读取所选文件的路径，请重新选择。",
+                "선택한 파일의 경로를 읽을 수 없습니다. 다시 선택하십시오.",
+                "Couldn't read the selected file's path. Choose it again."
+            ),
         ));
     }
     core::done(&app, Request::ImportModels { paths })

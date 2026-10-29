@@ -41,7 +41,11 @@ pub async fn pause<R: Runtime>(app: &AppHandle<R>, until: PauseFor) -> Result<()
             log::error!("无法计算明天 0 点的时间：{err}");
             error(
                 ApiError::INTERNAL,
-                "无法计算明天 0 点的时间，请改用其他暂停方式。",
+                rummage_proto::trs!(
+                    "无法计算明天 0 点的时间，请改用其他暂停方式。",
+                    "내일 0시를 계산할 수 없습니다. 다른 일시정지 방식을 사용하십시오.",
+                    "Couldn't calculate midnight tomorrow. Use a different pause option."
+                ),
             )
         })?),
         PauseFor::Manual => None,

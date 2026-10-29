@@ -9,6 +9,8 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use rummage_proto::tr;
+
 use super::golden::Golden;
 use super::speed;
 use super::{
@@ -30,7 +32,7 @@ pub(super) fn test_in_order(
     for (i, r) in reports.iter_mut().enumerate() {
         if stopped && r.backend.accel() && !reused.get(i).is_some_and(|x| *x) {
             r.status = Status::Skipped;
-            r.reason = Some(SKIPPED_REASON.to_string());
+            r.reason = Some(super::shown_reason(SKIPPED_REASON).to_string());
             continue;
         }
         test_one(i, r);
@@ -51,15 +53,20 @@ pub(super) fn check_driver_events(r: &mut CandidateReport, start: Instant) -> Ev
                 events.len(),
                 events.join("；")
             );
-            r.fail("检测期间显卡驱动出现错误，为避免影响系统，已屏蔽这块显卡，更新显卡驱动后可以重新检测。".to_string());
+            r.fail(tr!(
+                "检测期间显卡驱动出现错误，为避免影响系统，已屏蔽这块显卡，更新显卡驱动后可以重新检测。",
+                "검사 중 그래픽 카드 드라이버 오류가 생겨, 시스템에 영향을 주지 않도록 이 그래픽 카드를 차단했습니다. 드라이버를 업데이트한 뒤 다시 검사할 수 있습니다.",
+                "The GPU driver had an error during the check, so this GPU was blocked to protect the system. Update the GPU driver to check it again."
+            ));
             Events::Found
         }
         Err(err) => {
             log::warn!("无法读取系统日志，不能确认自检期间显卡驱动是否重置：{err}");
-            r.fail(
-                "无法读取系统日志，不能确认检测期间显卡驱动是否出错，本次不使用这块显卡。"
-                    .to_string(),
-            );
+            r.fail(tr!(
+                "无法读取系统日志，不能确认检测期间显卡驱动是否出错，本次不使用这块显卡。",
+                "시스템 로그를 읽을 수 없어 검사 중 그래픽 카드 드라이버 오류 여부를 확인할 수 없으므로 이번에는 이 그래픽 카드를 사용하지 않습니다.",
+                "Can't read the system log to confirm whether the GPU driver had errors during the check, so this GPU isn't used this time."
+            ));
             Events::Unreadable
         }
     }
@@ -119,8 +126,10 @@ pub(super) fn wait_limited(
                 Err(RecvTimeoutError::Timeout) => {
                     r.driver_error = true;
                     r.stuck = true;
-                    r.fail(format!(
+                    r.fail(tr!(
                         "检测被中止后 {} 秒内仍未结束，显卡驱动可能已停止响应，建议重新启动电脑。",
+                        "검사를 중단한 뒤 {}초가 지나도 끝나지 않았습니다. 그래픽 카드 드라이버가 응답하지 않는 것일 수 있으니 컴퓨터를 다시 시작하는 것이 좋습니다.",
+                        "The check didn't end within {} seconds after being stopped. The GPU driver may have stopped responding; restarting the computer is recommended.",
                         grace.as_secs()
                     ));
                 }
@@ -151,19 +160,27 @@ pub(super) fn wait_limited(
                 Err(_) => false,
             };
             r.driver_error = true;
-            r.fail(format!(
+            r.fail(tr!(
                 "检测超过 {} 秒仍未完成，已停止检测这块显卡。",
+                "검사가 {}초를 넘어도 끝나지 않아 이 그래픽 카드 검사를 중지했습니다.",
+                "The check didn't finish within {} seconds, so checking this GPU was stopped.",
                 limit.as_secs()
             ));
             if !returned {
                 r.stuck = true;
-                r.fail(format!(
+                r.fail(tr!(
                     "停止后 {} 秒内仍未结束，显卡驱动可能已停止响应，建议重新启动电脑。",
+                    "중지한 뒤 {}초가 지나도 끝나지 않았습니다. 그래픽 카드 드라이버가 응답하지 않는 것일 수 있으니 컴퓨터를 다시 시작하는 것이 좋습니다.",
+                    "It didn't end within {} seconds after being stopped. The GPU driver may have stopped responding; restarting the computer is recommended.",
                     grace.as_secs()
                 ));
             }
         }
-        Err(RecvTimeoutError::Disconnected) => r.fail("检测意外中断。".to_string()),
+        Err(RecvTimeoutError::Disconnected) => r.fail(tr!(
+            "检测意外中断。",
+            "검사가 예기치 않게 중단되었습니다.",
+            "The check was interrupted unexpectedly."
+        )),
     }
 }
 
@@ -212,7 +229,11 @@ fn measure(
                 v.len(),
                 s.want.len()
             );
-            return r.fail("计算结果格式不正确，不能使用这个设备。".to_string());
+            return r.fail(tr!(
+                "计算结果格式不正确，不能使用这个设备。",
+                "계산 결과 형식이 올바르지 않아 이 기기를 사용할 수 없습니다.",
+                "The computed result has the wrong format, so this device can't be used."
+            ));
         }
         let cos = vector::cosine(&v, &s.want);
         // NaN 也算不达标。
@@ -231,7 +252,11 @@ fn measure(
             r.name,
             low.join("、")
         );
-        return r.fail("这个设备的计算结果与标准结果相差过大，不能使用。".to_string());
+        return r.fail(tr!(
+            "这个设备的计算结果与标准结果相差过大，不能使用。",
+            "이 기기의 계산 결과가 기준 결과와 너무 달라 사용할 수 없습니다.",
+            "This device's results differ too much from the reference results, so it can't be used."
+        ));
     }
 
     // GPU 第二遍计时，第一遍兼作预热；CPU 用第一遍的耗时

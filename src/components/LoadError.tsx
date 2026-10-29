@@ -1,4 +1,5 @@
 import { BUTTON, ERROR_TEXT } from './onboarding/styles'
+import { t } from '../lib/i18n'
 
 interface Props {
   message: string
@@ -13,7 +14,7 @@ export default function LoadError({ message, onRetry, className = '' }: Props) {
     <div className={`flex items-center gap-3 ${className}`}>
       <p data-selectable-text className={`flex-1 ${ERROR_TEXT}`}>{message}</p>
       <button type="button" className={BUTTON} onClick={onRetry}>
-        重试
+        {t('重试')}
       </button>
     </div>
   )

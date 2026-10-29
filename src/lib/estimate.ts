@@ -1,5 +1,6 @@
 import type { DeviceResult, Estimate, SelftestStatus } from '../types'
 import { formatSize } from './format'
+import { t } from './i18n'
 import { type Kinds, VIDEO_PRESETS } from './kinds'
 
 // 引导中的索引时间与空间预估。只求量级，结果都是范围，系数的依据写在各常量旁
@@ -181,29 +182,28 @@ export function diskShort(diskHigh: number, freeGb: number | null, minFreeGb: nu
   return diskHigh + minFreeGb * 2 ** 30 > freeGb * 2 ** 30
 }
 
-/** 时长的粗略写法 */
-function roughDuration(sec: number) {
-  if (sec < 60) return '1 分钟'
-  if (sec < 3600) return `${Math.round(sec / 60)} 分钟`
+/** 时长的粗略写法：数值与单位的词典键（“{n} 分钟”“{n} 小时”） */
+function roughDuration(sec: number): [number, string] {
+  if (sec < 60) return [1, '{n} 分钟']
+  if (sec < 3600) return [Math.round(sec / 60), '{n} 分钟']
   const h = sec / 3600
-  return `${h < 10 ? Number(h.toFixed(1)) : Math.round(h)} 小时`
+  return [h < 10 ? Number(h.toFixed(1)) : Math.round(h), '{n} 小时']
 }
 
 /** 时间范围，如“约 3–8 分钟”“不到 1 分钟” */
 export function formatTimeRange(r: Range) {
-  if (r.high < 60) return '不到 1 分钟'
-  const low = roughDuration(r.low)
-  const high = roughDuration(r.high)
-  if (low === high) return `约 ${low}`
+  if (r.high < 60) return t('不到 1 分钟')
+  const [low, lowUnit] = roughDuration(r.low)
+  const [high, highUnit] = roughDuration(r.high)
+  if (low === high && lowUnit === highUnit) return t('约 {d}', { d: t(lowUnit, { n: low }) })
   // 单位相同时只写一次
-  const unit = (s: string) => s.replace(/^[\d.]+ /, '')
-  if (unit(low) === unit(high)) return `约 ${low.split(' ')[0]}–${high}`
-  return `约 ${low}到 ${high}`
+  if (lowUnit === highUnit) return t('约 {d}', { d: t(highUnit, { n: `${low}–${high}` }) })
+  return t('约 {low}到 {high}', { low: t(lowUnit, { n: low }), high: t(highUnit, { n: high }) })
 }
 
 /** 空间范围，如“约 12 MB–30 MB” */
 export function formatSizeRange(r: Range) {
   const low = formatSize(Math.round(r.low))
   const high = formatSize(Math.round(r.high))
-  return low === high ? `约 ${low}` : `约 ${low}–${high}`
+  return t('约 {d}', { d: low === high ? low : `${low}–${high}` })
 }

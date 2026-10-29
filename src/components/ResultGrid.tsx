@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode, type Ref
 import type { SearchHit } from '../types'
 import { cardHeight, columnCount, GAP, layoutMasonry, visibleIndexes, type Masonry } from '../lib/masonry'
 import { canFindSimilar } from '../lib/format'
+import { t } from '../lib/i18n'
 import { hitEmbed, hitRegion } from '../lib/media'
 import ResultCard from './ResultCard'
 
@@ -80,7 +81,7 @@ export default function ResultGrid({ hits, selected, onSelect, onOpen, onSimilar
   const visible = visibleIndexes(layout.boxes, view.top, view.bottom)
 
   return (
-    <div ref={gridRef} role="listbox" aria-label="搜索结果" tabIndex={-1} className="relative w-full outline-none" style={{ height: layout.height }}>
+    <div ref={gridRef} role="listbox" aria-label={t('搜索结果')} tabIndex={-1} className="relative w-full outline-none" style={{ height: layout.height }}>
       {band && layout.bandY !== null && (
         <div className="absolute inset-x-0 flex items-center" style={{ top: layout.bandY, height: BAND_HEIGHT }}>{band.node}</div>
       )}

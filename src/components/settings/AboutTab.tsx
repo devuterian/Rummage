@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { checkForUpdates, setUpdateModalOpen, useReleaseUpdates } from '../../hooks/useReleaseUpdates'
 import { errorMessage } from '../../lib/errors'
+import { t } from '../../lib/i18n'
 import { openExternal } from '../../lib/platform'
 import { compareVersions, ISSUES_URL, LICENSE_URL, MANUAL_CHECK_MIN_INTERVAL_MS, REPO_URL } from '../../lib/releaseUpdates'
 import { ChatIcon, ChevronRightIcon, ClockIcon, DocumentIcon, ExternalLinkIcon, GithubIcon, HeartIcon, ResetIcon, ScaleIcon } from '../icons'
@@ -76,11 +77,11 @@ export default function AboutTab() {
     try {
       // 手动检查只复用一分钟内的缓存；有新版本时直接打开更新日志
       const next = await checkForUpdates(MANUAL_CHECK_MIN_INTERVAL_MS)
-      if (!next) showToast('暂无已发布的版本')
+      if (!next) showToast(t('暂无已发布的版本'))
       else if (compareVersions(next.version, __APP_VERSION__) > 0) setUpdateModalOpen(true)
-      else showToast('已是最新版本', 'success')
+      else showToast(t('已是最新版本'), 'success')
     } catch (err) {
-      showToast(`检查更新失败：${errorMessage(err, '请稍后再试')}`, 'error')
+      showToast(t('检查更新失败：{reason}', { reason: errorMessage(err, t('请稍后再试')) }), 'error')
     } finally {
       setChecking(false)
     }
@@ -88,11 +89,11 @@ export default function AboutTab() {
 
   const hasUpdate = Boolean(latest && compareVersions(latest.version, __APP_VERSION__) > 0)
   const checkStatus = checking ? (
-    <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">正在检查</span>
+    <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">{t('正在检查')}</span>
   ) : checkError ? (
-    <span className="shrink-0 text-xs text-red-500 dark:text-red-400">检查失败</span>
+    <span className="shrink-0 text-xs text-red-500 dark:text-red-400">{t('检查失败')}</span>
   ) : latest ? (
-    <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">已是最新版本</span>
+    <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">{t('已是最新版本')}</span>
   ) : null
 
   return (
@@ -114,27 +115,27 @@ export default function AboutTab() {
             </button>
           </p>
           <p data-selectable-text className="mt-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-            本项目的成长离不开每一位用户的使用、反馈、贡献与支持，感谢一路有你。
+            {t('本项目的成长离不开每一位用户的使用、反馈、贡献与支持，感谢一路有你。')}
           </p>
         </div>
         <button
           type="button"
           onClick={() => openExternal(REPO_URL)}
-          aria-label="GitHub 仓库"
+          aria-label={t('GitHub 仓库')}
           className="shrink-0 rounded-lg p-1 text-gray-400 outline-none transition-colors hover:text-gray-700 focus-visible:text-gray-700 focus-visible:ring-2 focus-visible:ring-blue-500/40 dark:text-gray-500 dark:hover:text-gray-200 dark:focus-visible:text-gray-200"
         >
           <GithubIcon className="h-6 w-6" />
-          <HoverTip label="GitHub 仓库" />
+          <HoverTip label={t('GitHub 仓库')} />
         </button>
       </div>
 
-      <AboutCard icon={<ResetIcon className="h-4 w-4" />} title="版本与更新">
+      <AboutCard icon={<ResetIcon className="h-4 w-4" />} title={t('版本与更新')}>
         {hasUpdate && !checking ? (
           <AboutRow
             highlight
             icon={<ResetIcon className="h-4 w-4" />}
-            title="发现新版本"
-            subtitle={`当前版本 v${__APP_VERSION__}`}
+            title={t('发现新版本')}
+            subtitle={t('当前版本 v{version}', { version: __APP_VERSION__ })}
             onClick={() => setUpdateModalOpen(true)}
             right={(
               <span className="flex shrink-0 items-center gap-1">
@@ -146,26 +147,26 @@ export default function AboutTab() {
         ) : (
           <AboutRow
             icon={<ResetIcon className={`h-4 w-4 ${checking ? 'animate-spin' : ''}`} />}
-            title="检查更新"
-            subtitle={checkError && !checking ? checkError : `当前版本 v${__APP_VERSION__}`}
+            title={t('检查更新')}
+            subtitle={checkError && !checking ? checkError : t('当前版本 v{version}', { version: __APP_VERSION__ })}
             onClick={() => void handleCheck()}
             right={checkStatus}
           />
         )}
-        <AboutRow icon={<ClockIcon className="h-4 w-4" />} title="更新日志" onClick={() => setUpdateModalOpen(true)} right={CHEVRON} />
+        <AboutRow icon={<ClockIcon className="h-4 w-4" />} title={t('更新日志')} onClick={() => setUpdateModalOpen(true)} right={CHEVRON} />
       </AboutCard>
 
-      <AboutCard icon={<HeartIcon className="h-4 w-4" />} title="支持与反馈">
-        <AboutRow icon={<ChatIcon className="h-4 w-4" />} title="反馈问题" onClick={() => openExternal(ISSUES_URL)} right={EXTERNAL} />
-        <AboutRow icon={<HeartIcon className="h-4 w-4" />} title="赞助作者" onClick={() => openExternal('https://www.ifdian.net/a/cooksleep')} right={EXTERNAL} />
+      <AboutCard icon={<HeartIcon className="h-4 w-4" />} title={t('支持与反馈')}>
+        <AboutRow icon={<ChatIcon className="h-4 w-4" />} title={t('反馈问题')} onClick={() => openExternal(ISSUES_URL)} right={EXTERNAL} />
+        <AboutRow icon={<HeartIcon className="h-4 w-4" />} title={t('赞助作者')} onClick={() => openExternal('https://www.ifdian.net/a/cooksleep')} right={EXTERNAL} />
       </AboutCard>
 
       <AboutCard>
-        <AboutRow icon={<ScaleIcon className="h-4 w-4" />} title="开源协议" subtitle="本软件以 MIT 协议开源" onClick={() => openExternal(LICENSE_URL)} right={EXTERNAL} />
+        <AboutRow icon={<ScaleIcon className="h-4 w-4" />} title={t('开源协议')} subtitle={t('本软件以 MIT 协议开源')} onClick={() => openExternal(LICENSE_URL)} right={EXTERNAL} />
         <AboutRow
           icon={<DocumentIcon className="h-4 w-4" />}
-          title="第三方许可"
-          subtitle="本软件使用的字体与依赖库的许可"
+          title={t('第三方许可')}
+          subtitle={t('本软件使用的字体与依赖库的许可')}
           onClick={() => setLicenses(true)}
           right={CHEVRON}
         />

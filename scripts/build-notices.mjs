@@ -51,6 +51,13 @@ section('Maple Mono NF CN 字体', [
   '',
   read('third-party-licenses/MapleMono-LICENSE.txt'),
 ].join('\n'))
+section('Pretendard Variable 字体', [
+  '版权方：Kil Hyung-jin',
+  '许可：SIL Open Font License 1.1',
+  '项目地址：https://github.com/orioncactus/pretendard',
+  '',
+  read('fonts/Pretendard-LICENSE.txt'),
+].join('\n'))
 section('Lobe Icons（设置中 AI 工具的品牌图标）', [
   '项目地址：https://github.com/lobehub/lobe-icons',
   '',

@@ -1,10 +1,12 @@
 // 版本信息：解析、合并与缓存 GitHub Releases API 的版本列表
 
+import { t } from './i18n'
+
 /**
  * 仓库只在这里和 src-tauri/src/releases.rs 的 `RELEASE_REPO`（读取版本列表的地址）定义，两处保持一致；
  * tauri.conf.json 中 updater 插件的更新地址也要一起改
  */
-const RELEASE_REPO = 'CookSleep/Rummage'
+const RELEASE_REPO = 'devuterian/Rummage'
 export const REPO_URL = `https://github.com/${RELEASE_REPO}`
 export const RELEASES_PAGE_URL = `${REPO_URL}/releases`
 export const ISSUES_URL = `${REPO_URL}/issues`
@@ -96,7 +98,7 @@ export function parseReleaseBody(body: string): ReleaseLine[] {
 
 /** 解析 Releases API 的一页；rawCount 用于判断是否还有下一页（草稿和预发布会被过滤掉） */
 export function parseReleasePage(data: unknown) {
-  if (!Array.isArray(data)) throw new Error('版本信息的格式不正确。')
+  if (!Array.isArray(data)) throw new Error(t('版本信息的格式不正确。'))
   return {
     rawCount: data.length,
     releases: data.map(normalizeRelease).filter((item): item is ReleaseInfo => item !== null),

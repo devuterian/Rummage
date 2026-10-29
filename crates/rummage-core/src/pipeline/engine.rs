@@ -21,7 +21,7 @@ use std::sync::mpsc::Sender;
 use std::time::Instant;
 
 use rummage_embed::{Backend, Error as EmbedError, selftest};
-use rummage_proto::params;
+use rummage_proto::{params, tr, trs};
 
 use super::{Engine, EngineSpec, Msg, Released, Shared, Start, int, lock, space_row};
 
@@ -104,8 +104,10 @@ impl Shared {
                 log::error!("无法创建推理后端：{err}");
                 *slot = None;
                 self.set_error(
-                    Some(format!(
+                    Some(tr!(
                         "{}目前只能按文件名搜索。请重新启动 Rummage，或在「设置 → 设备」中选择使用 CPU。",
+                        "{} 지금은 파일 이름으로만 검색할 수 있습니다. Rummage를 다시 시작하거나 ‘설정 → 기기’에서 CPU를 선택하십시오.",
+                        "{} For now, only file names can be searched. Restart Rummage, or choose CPU in ‘Settings → Device’.",
                         err.user_message()
                     )),
                     out,
@@ -217,11 +219,18 @@ impl Shared {
             d.all || d.keys.contains(&selftest::report_key(npu))
         };
         if retry && disabled {
-            return Some("NPU 出错，本次运行无法识别文件内容。可在「设置 → 模型」中下载通用模型，改用 GPU 或 CPU；或重新启动 Rummage 再试 NPU。".to_string());
+            return Some(tr!(
+                "NPU 出错，本次运行无法识别文件内容。可在「设置 → 模型」中下载通用模型，改用 GPU 或 CPU；或重新启动 Rummage 再试 NPU。",
+                "NPU 오류로 이번 실행에서는 파일 내용을 인식할 수 없습니다. ‘설정 → 모델’에서 범용 모델을 다운로드해 GPU나 CPU를 쓰거나, Rummage를 다시 시작해 NPU를 다시 시도하십시오.",
+                "The NPU hit an error, so file contents can't be recognized in this session. Download the general model in ‘Settings → Models’ to use the GPU or CPU instead, or restart Rummage to try the NPU again."
+            ));
         }
         (!retry && npu.status != selftest::Status::Skipped).then(|| {
-            "NPU 出错，无法识别文件内容。可在「设置 → 模型」中下载通用模型，改用 GPU 或 CPU。"
-                .to_string()
+            tr!(
+                "NPU 出错，无法识别文件内容。可在「设置 → 模型」中下载通用模型，改用 GPU 或 CPU。",
+                "NPU 오류로 파일 내용을 인식할 수 없습니다. ‘설정 → 모델’에서 범용 모델을 다운로드해 GPU나 CPU를 쓰십시오.",
+                "The NPU hit an error, so file contents can't be recognized. Download the general model in ‘Settings → Models’ to use the GPU or CPU instead."
+            )
         })
     }
 
@@ -304,7 +313,12 @@ impl Shared {
             if let EmbedError::Stuck(_) = err
                 && engine.gpu.is_none()
             {
-                *lock(&self.dead) = Some(format!("{}目前只能按文件名搜索。", err.user_message()));
+                *lock(&self.dead) = Some(tr!(
+                    "{}目前只能按文件名搜索。",
+                    "{} 지금은 파일 이름으로만 검색할 수 있습니다.",
+                    "{} For now, only file names can be searched.",
+                    err.user_message()
+                ));
             }
             // 先于清空槽设置：否则调度线程可能在两步之间又按缓存在同一块 GPU 上建引擎
             let all = !not_driver(err) || lock(&self.sleep).overlaps(start.generation);
@@ -361,7 +375,12 @@ impl Shared {
         } else {
             match (self.opts.driver_events)(start.at) {
                 Ok(events) if !events.is_empty() => {
-                    format!("{err}；期间系统日志中有显卡驱动事件：{}", events.join("；"))
+                    tr!(
+                        "{err}；期间系统日志中有显卡驱动事件：{}",
+                        "{err}; 이 시간 동안 시스템 로그에 그래픽 드라이버 이벤트가 기록되었습니다: {}",
+                        "{err}; the system log recorded graphics driver events during this time: {}",
+                        events.join(trs!("；", "; ", "; "))
+                    )
                 }
                 Ok(_) => {
                     log::warn!("系统日志中没有显卡驱动事件，只在本次运行内停用显卡。");

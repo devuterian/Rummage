@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { errorMessage } from '../../lib/errors'
+import { t } from '../../lib/i18n'
 import { renderMessage } from '../ConfirmDialog'
 import { showToast } from '../Toast'
 import { HEADER_BUTTON, ROW_DESC, ROW_LABEL } from './styles'
@@ -37,36 +38,36 @@ export default function BackgroundRunRow() {
       .then(setGranted)
       .catch((err) => {
         console.warn('无法打开电池优化设置：', err)
-        showToast(errorMessage(err, '无法打开电池优化设置'), 'error')
+        showToast(errorMessage(err, t('无法打开电池优化设置')), 'error')
       })
   }
 
   const openSettings = () => {
     invoke('open_app_settings').catch((err) => {
       console.warn('无法打开应用信息：', err)
-      showToast(errorMessage(err, '无法打开应用信息'), 'error')
+      showToast(errorMessage(err, t('无法打开应用信息')), 'error')
     })
   }
 
   return (
     <div>
       <div className="mb-1 flex items-center justify-between gap-3">
-        <span className={`min-w-0 truncate ${ROW_LABEL}`}>后台运行</span>
+        <span className={`min-w-0 truncate ${ROW_LABEL}`}>{t('后台运行')}</span>
         <button type="button" disabled={granted !== false} onClick={request} className={HEADER_BUTTON}>
-          {granted ? '已允许' : '允许'}
+          {granted ? t('已允许') : t('允许')}
         </button>
       </div>
-      <div data-selectable-text className={ROW_DESC}>允许 Rummage 在后台不受电池优化限制，建立索引不会被系统中断。</div>
+      <div data-selectable-text className={ROW_DESC}>{t('允许 Rummage 在后台不受电池优化限制，建立索引不会被系统中断。')}</div>
       <div className="mb-1 mt-4 flex items-center justify-between gap-3">
-        <span className={`min-w-0 truncate ${ROW_LABEL}`}>系统的后台管控</span>
+        <span className={`min-w-0 truncate ${ROW_LABEL}`}>{t('系统的后台管控')}</span>
         <button type="button" onClick={openSettings} className={HEADER_BUTTON}>
-          打开应用信息
+          {t('打开应用信息')}
         </button>
       </div>
       <div data-selectable-text className={`space-y-1 ${ROW_DESC}`}>
-        <p>部分手机系统会在 Rummage 退到后台几秒后暂停它，不受上面的设置影响。</p>
-        <p>{renderMessage('如果锁屏或切到其他应用后进度不动，请在应用信息的「电量」或「电池」中允许 Rummage 在后台运行。', 'font-semibold')}</p>
-        <p>各系统的叫法不同，如“允许后台耗电”“无限制”。</p>
+        <p>{t('部分手机系统会在 Rummage 退到后台几秒后暂停它，不受上面的设置影响。')}</p>
+        <p>{renderMessage(t('如果锁屏或切到其他应用后进度不动，请在应用信息的「电量」或「电池」中允许 Rummage 在后台运行。'), 'font-semibold')}</p>
+        <p>{t('各系统的叫法不同，如“允许后台耗电”“无限制”。')}</p>
       </div>
     </div>
   )

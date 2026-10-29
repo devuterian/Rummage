@@ -6,6 +6,7 @@ import { formatSize } from '../lib/format'
 import ConfirmDialog from './ConfirmDialog'
 import PathBox from './PathBox'
 import { showToast } from './Toast'
+import { t } from '../lib/i18n'
 
 type Dialog = { type: 'blocked'; message: string; rows?: [string, string][] } | { type: 'change'; change: DataDirChange }
 
@@ -28,14 +29,14 @@ export default function ChangeDataDirButton({ label, className, disabled }: Prop
       .then((change) => {
         if (!change) return
         if (change.blocked) {
-          setDialog({ type: 'blocked', message: change.blocked, rows: [['当前目录', change.from], ['新目录', change.to]] })
+          setDialog({ type: 'blocked', message: change.blocked, rows: [[t('当前目录'), change.from], [t('新目录'), change.to]] })
           return
         }
         setDialog({ type: 'change', change })
       })
       .catch((err) => {
         console.warn('选择数据目录失败：', err)
-        setDialog({ type: 'blocked', message: errorMessage(err, '无法选择这个目录，请重试。') })
+        setDialog({ type: 'blocked', message: errorMessage(err, t('无法选择这个目录，请重试。')) })
       })
   }
 
@@ -45,7 +46,7 @@ export default function ChangeDataDirButton({ label, className, disabled }: Prop
       console.warn('更改数据目录失败：', err)
       setRestarting(false)
       setDialog(null)
-      showToast(errorMessage(err, '更改数据目录失败，请重试。'), 'error')
+      showToast(errorMessage(err, t('更改数据目录失败，请重试。')), 'error')
     })
   }
 
@@ -55,22 +56,22 @@ export default function ChangeDataDirButton({ label, className, disabled }: Prop
         {label}
       </button>
       {dialog?.type === 'blocked' && (
-        <ConfirmDialog title="无法使用该目录" message={dialog.message} confirmText="知道了" hideCancel onConfirm={() => setDialog(null)} onCancel={() => setDialog(null)}>
+        <ConfirmDialog title={t('无法使用该目录')} message={dialog.message} confirmText={t('知道了')} hideCancel onConfirm={() => setDialog(null)} onCancel={() => setDialog(null)}>
           {dialog.rows && <PathBox rows={dialog.rows} />}
         </ConfirmDialog>
       )}
       {dialog?.type === 'change' && (
         <ConfirmDialog
-          title="更改数据目录"
-          message={`将 ${dialog.change.files} 个文件（${formatSize(dialog.change.bytes)}）复制到新目录。\n\nRummage 会先重新启动，复制完成后删除原目录。`}
-          confirmText="重新启动并更改"
-          busy={restarting ? '正在重新启动' : undefined}
+          title={t('更改数据目录')}
+          message={t('将 {files} 个文件（{size}）复制到新目录。\n\nRummage 会先重新启动，复制完成后删除原目录。', { files: dialog.change.files, size: formatSize(dialog.change.bytes) })}
+          confirmText={t('重新启动并更改')}
+          busy={restarting ? t('正在重新启动') : undefined}
           onConfirm={confirmChange}
           onCancel={() => setDialog(null)}
         >
           <div className="space-y-3">
-            <PathBox rows={[['当前目录', dialog.change.from], ['新目录', dialog.change.to]]} />
-            <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">建立索引会暂停，重新启动后继续。复制失败时继续使用原目录。</p>
+            <PathBox rows={[[t('当前目录'), dialog.change.from], [t('新目录'), dialog.change.to]]} />
+            <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">{t('建立索引会暂停，重新启动后继续。复制失败时继续使用原目录。')}</p>
           </div>
         </ConfirmDialog>
       )}

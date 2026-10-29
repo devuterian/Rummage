@@ -13,7 +13,7 @@ use jni::{Env, jni_sig, jni_str};
 use super::with_context;
 
 /// `EmbedProcess` 的完整类名
-const LAUNCHER_CLASS: &str = "com.cooksleep.rummage.storage.EmbedProcess";
+const LAUNCHER_CLASS: &str = "com.marierie.rummage.storage.EmbedProcess";
 /// 算作被系统结束的退出原因（`ApplicationExitInfo.REASON_*`）：被信号结束、内存不足、系统的其他结束、冻结。
 /// 崩溃、ANR、自己退出等按出错处理
 const SYSTEM_KILLS: [i32; 4] = [2, 3, 13, 14];
@@ -158,7 +158,7 @@ pub fn register() {
 
 /// `:embed` 进程中 `EmbedService.runWorker(socket, args)` 的实现（见模块说明）
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_cooksleep_rummage_storage_EmbedService_runWorker<'local>(
+pub extern "system" fn Java_com_marierie_rummage_storage_EmbedService_runWorker<'local>(
     mut env: jni::EnvUnowned<'local>,
     _this: JObject<'local>,
     socket: JString<'local>,

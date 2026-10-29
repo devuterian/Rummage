@@ -15,7 +15,7 @@ use std::path::{MAIN_SEPARATOR, PathBuf};
 use rusqlite::params;
 
 use crate::db::{Db, DbError, now_ms};
-use crate::jobs::{ENCRYPTED, FAILED, PART_MEDIA};
+use crate::jobs::{ENCRYPTED, FAILED, PART_MEDIA, shown_reason};
 use crate::scan::exact_rule;
 
 /// 失败文件列表的一行
@@ -84,8 +84,10 @@ impl Db {
                         let reason: Option<String> = if stage == "failed" {
                             row.get(5)?
                         } else {
-                            Some(format!(
-                                "文档中有 {media_failed} 个图片或音视频无法识别，正文可以正常搜索。"
+                            Some(rummage_proto::tr!(
+                                "文档中有 {media_failed} 个图片或音视频无法识别，正文可以正常搜索。",
+                                "문서 안의 이미지나 오디오·동영상 {media_failed}개를 인식하지 못했습니다. 본문은 정상적으로 검색할 수 있습니다.",
+                                "{media_failed} images, audio or video items in the document couldn't be recognized. The text can still be searched."
                             ))
                         };
                         Ok(FailedFile {
@@ -94,7 +96,7 @@ impl Db {
                             path: PathBuf::from(root).join(rel),
                             kind: row.get(4)?,
                             retryable: reason.as_deref() != Some(ENCRYPTED),
-                            reason,
+                            reason: reason.map(shown_reason),
                             failed_at: row.get(6)?,
                         })
                     },

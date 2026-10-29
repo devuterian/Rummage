@@ -1,10 +1,11 @@
 import type { FolderFilterEntry, FolderScope, SearchFilter } from '../types'
-import { kindLabel } from './format'
+import { KIND_LABELS } from './format'
+import { t } from './i18n'
 
 // 搜索页的筛选条，条件在本次运行内保持
 
-/** 类型多选菜单的选项，键为文件种类；`other` 是只按文件名索引的文件 */
-export const KIND_OPTIONS = ['document', 'image', 'audio', 'video', 'other'].map((kind) => ({ kind, label: kindLabel(kind) }))
+/** 类型多选菜单的选项，键为文件种类；`other` 是只按文件名索引的文件。标签为中文原文，显示时用 `t()` 翻译 */
+export const KIND_OPTIONS = ['document', 'image', 'audio', 'video', 'other'].map((kind) => ({ kind, label: KIND_LABELS[kind] ?? '其他' }))
 
 /** 按修改时间筛选；天数为空表示不限，0 表示今天 */
 export const TIME_OPTIONS = [
@@ -63,8 +64,8 @@ export const isReversed = (from: string, to: string) => !!from && !!to && from >
 /** 触发器上的自定义范围，如“2025-03-01 – 2025-06-30”“2025-03-01 以后”；都没填时为空 */
 export function customLabel(from: string, to: string) {
   if (from && to) return `${from} – ${to}`
-  if (from) return `${from} 以后`
-  if (to) return `${to} 以前`
+  if (from) return t('{date} 以后', { date: from })
+  if (to) return t('{date} 以前', { date: to })
   return ''
 }
 

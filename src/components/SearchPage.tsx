@@ -12,6 +12,7 @@ import { useSearch } from '../hooks/useSearch'
 import { indexDevice } from '../lib/device'
 import { DEFAULT_FILTERS } from '../lib/filter'
 import { lowRelevanceText, trimPeriod, unavailableText } from '../lib/format'
+import { t } from '../lib/i18n'
 import { moveSelection, type Direction, type Masonry } from '../lib/masonry'
 import { hitPosition, hitPreviewUrl, hitRegion } from '../lib/media'
 import { isAndroid, isTauri } from '../lib/platform'
@@ -263,7 +264,7 @@ export default function SearchPage({ coreStatus, setup, setupError, onSetup, onS
     invoke(cmd, args).catch((err) => {
       const what = cmd === 'share_file' ? '分享这个文件' : '打开这个文件'
       console.warn(`无法${what}：`, err)
-      showToast(errorMessage(err, `无法${what}`), 'error')
+      showToast(errorMessage(err, cmd === 'share_file' ? t('无法分享这个文件') : t('无法打开这个文件')), 'error')
     })
   }, [remember])
 
@@ -281,7 +282,7 @@ export default function SearchPage({ coreStatus, setup, setupError, onSetup, onS
     const unDrop = listen<ImageQuery | null>('image-drop', (e) => {
       if (modalOpen()) return
       if (!e.payload) {
-        showToast('请拖入图片文件')
+        showToast(t('请拖入图片文件'))
         return
       }
       setOverlayOpen(false)
@@ -418,17 +419,17 @@ export default function SearchPage({ coreStatus, setup, setupError, onSetup, onS
           className="absolute right-full top-1 mr-0.5 animate-overlay-in rounded-[4px] border border-red-500/30 bg-red-500 px-1 py-0.5 text-[9px] font-black leading-none text-white shadow-sm transition-all hover:bg-red-600 before:absolute before:-inset-[9px] before:content-['']"
         >
           NEW
-          <HoverTip label={`新版本 ${latestRelease.tag}`} />
+          <HoverTip label={t('新版本 {tag}', { tag: latestRelease.tag })} />
         </button>
       )}
       <button
         type="button"
         onClick={() => setSettings({ tab: 'folders' })}
-        aria-label="设置"
+        aria-label={t('设置')}
         className="rounded-full p-2 text-gray-500 transition duration-200 hover:bg-black/5 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-gray-200"
       >
         <SettingsIcon className="h-5 w-5" />
-        <HoverTip label="设置" />
+        <HoverTip label={t('设置')} />
       </button>
     </>
   )
@@ -451,11 +452,11 @@ export default function SearchPage({ coreStatus, setup, setupError, onSetup, onS
           <button
             type="button"
             onClick={toggleCollapsed}
-            aria-label="展开详情栏"
+            aria-label={t('展开详情栏')}
             className="absolute right-3 top-[calc(1.25rem+var(--safe-top))] rounded-full border border-gray-200/60 bg-white/90 p-2 text-gray-500 shadow-sm backdrop-blur-xl transition duration-200 hover:text-gray-700 dark:border-white/[0.08] dark:bg-gray-900/90 dark:text-gray-400 dark:hover:text-gray-200"
           >
             <PanelExpandIcon className="h-4 w-4" />
-            <HoverTip label="展开详情栏（空格）" />
+            <HoverTip label={t('展开详情栏（空格）')} />
           </button>
         )}
         <div className="mx-auto w-full max-w-2xl">
@@ -520,12 +521,12 @@ export default function SearchPage({ coreStatus, setup, setupError, onSetup, onS
         ) : !query || (loading && !allHits.length) ? null : results && !allHits.length ? (
           // 没有结果时，语义检索不可用的原因比“没有找到”更有用，放在中间
           <p className="py-20 text-center text-sm text-gray-400 dark:text-gray-500">
-            {unavailable ? renderMessage(trimPeriod(unavailable), 'font-semibold') : '没有找到相关内容'}
+            {unavailable ? renderMessage(trimPeriod(unavailable), 'font-semibold') : t('没有找到相关内容')}
           </p>
         ) : (
           <>
             {/* 结果都不够相关时照样说没有找到，折叠的结果在下方可以展开 */}
-            {mainCount === 0 && <p className="pb-6 pt-14 text-center text-sm text-gray-400 dark:text-gray-500">没有找到相关内容</p>}
+            {mainCount === 0 && <p className="pb-6 pt-14 text-center text-sm text-gray-400 dark:text-gray-500">{t('没有找到相关内容')}</p>}
             <ResultGrid
               hits={hits}
               selected={selected}
@@ -578,7 +579,7 @@ export default function SearchPage({ coreStatus, setup, setupError, onSetup, onS
 
       {dragging && (
         <div className="pointer-events-none fixed inset-3 z-40 flex items-center justify-center rounded-3xl border-2 border-dashed border-blue-400 bg-blue-500/5 backdrop-blur-sm">
-          <p className="text-sm font-medium text-blue-500">松开即可用这张图片搜索</p>
+          <p className="text-sm font-medium text-blue-500">{t('松开即可用这张图片搜索')}</p>
         </div>
       )}
 

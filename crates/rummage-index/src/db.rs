@@ -192,41 +192,83 @@ CREATE TABLE folder_filter (
 /// 消息都是能直接展示给用户的中文整句；原始错误在构造时写日志
 #[derive(Debug, thiserror::Error)]
 pub enum DbError {
-    #[error("数据目录所在的磁盘（{0}）未连接，请连接后重新启动 Rummage。")]
+    #[error("{}", rummage_proto::tr!(
+        "数据目录所在的磁盘（{}）未连接，请连接后重新启动 Rummage。",
+        "데이터 폴더가 있는 디스크({})가 연결되어 있지 않습니다. 연결한 뒤 Rummage를 다시 시작하십시오.",
+        "The disk with the data folder ({}) isn't connected. Connect it, then restart Rummage.",
+        .0
+    ))]
     DriveMissing(String),
-    #[error("数据目录（{0}）不可写，请检查目录权限和磁盘空间后重新启动 Rummage。")]
+    #[error("{}", rummage_proto::tr!(
+        "数据目录（{}）不可写，请检查目录权限和磁盘空间后重新启动 Rummage。",
+        "데이터 폴더({})에 쓸 수 없습니다. 폴더 권한과 디스크 공간을 확인한 뒤 Rummage를 다시 시작하십시오.",
+        "Can't write to the data folder ({}). Check the folder permissions and disk space, then restart Rummage.",
+        .0
+    ))]
     Unwritable(String),
-    #[error("索引数据库来自更新版本的 Rummage，请升级应用后再打开。")]
+    #[error("{}", rummage_proto::trs!(
+        "索引数据库来自更新版本的 Rummage，请升级应用后再打开。",
+        "색인 데이터베이스가 더 새로운 버전의 Rummage에서 만들어졌습니다. 앱을 업데이트한 뒤 다시 여십시오.",
+        "The index database was created by a newer version of Rummage. Update the app, then open it again."
+    ))]
     TooNew,
-    #[error("升级索引数据库前无法备份，请检查磁盘空间后重新启动 Rummage。")]
+    #[error("{}", rummage_proto::trs!(
+        "升级索引数据库前无法备份，请检查磁盘空间后重新启动 Rummage。",
+        "색인 데이터베이스를 업그레이드하기 전에 백업하지 못했습니다. 디스크 공간을 확인한 뒤 Rummage를 다시 시작하십시오.",
+        "Couldn't back up the index database before upgrading it. Check the disk space, then restart Rummage."
+    ))]
     Backup,
-    #[error(
-        "索引数据库从版本 {0} 升级失败，已恢复到升级前的状态。\n\n请更新到最新版本的 Rummage 后再打开，或查看日志了解原因。"
-    )]
+    #[error("{}", rummage_proto::tr!(
+        "索引数据库从版本 {} 升级失败，已恢复到升级前的状态。\n\n请更新到最新版本的 Rummage 后再打开，或查看日志了解原因。",
+        "색인 데이터베이스를 버전 {}에서 업그레이드하지 못해 업그레이드 전 상태로 되돌렸습니다.\n\n최신 버전의 Rummage로 업데이트한 뒤 다시 열거나, 로그에서 원인을 확인하십시오.",
+        "Couldn't upgrade the index database from version {}, so it was restored to its previous state.\n\nUpdate to the latest version of Rummage and open it again, or check the logs for the cause.",
+        .0
+    ))]
     Migrate(usize),
-    #[error(
-        "索引数据库升级失败，且无法从备份恢复，备份文件保存在 \"{0}\"。\n\n请关闭 Rummage，用该文件替换 index.db 后重新启动。"
-    )]
+    #[error("{}", rummage_proto::tr!(
+        "索引数据库升级失败，且无法从备份恢复，备份文件保存在 \"{}\"。\n\n请关闭 Rummage，用该文件替换 index.db 后重新启动。",
+        "색인 데이터베이스 업그레이드에 실패했고 백업에서 복원하지도 못했습니다. 백업 파일은 \"{}\"에 있습니다.\n\nRummage를 닫고 이 파일로 index.db를 바꾼 뒤 다시 시작하십시오.",
+        "Couldn't upgrade the index database or restore it from the backup. The backup is saved at \"{}\".\n\nClose Rummage, replace index.db with that file, then start it again.",
+        .0
+    ))]
     Restore(String),
-    #[error(
+    #[error("{}", rummage_proto::tr!(
         "更新索引数据库时出错，自动恢复也没有成功。\n\n可以清除全部索引后重新建立（不会删除你的文件），或关闭 Rummage，用数据目录中的 \"{}\" 替换 index.db 后再打开。",
+        "색인 데이터베이스를 업데이트하다 오류가 생겼고 자동 복구도 실패했습니다.\n\n색인을 모두 지우고 다시 만들거나(파일은 삭제되지 않음), Rummage를 닫고 데이터 폴더의 \"{}\"로 index.db를 바꾼 뒤 다시 여십시오.",
+        "An error occurred while updating the index database, and automatic recovery failed.\n\nYou can clear the whole index and rebuild it (your files won't be deleted), or close Rummage, replace index.db with \"{}\" in the data folder, then open it again.",
         .backup.file_name().unwrap_or_default().to_string_lossy()
-    )]
+    ))]
     RestoreFailed { backup: PathBuf },
-    #[error("数据目录所在的磁盘空间不足，请清理后重试。")]
+    #[error("{}", rummage_proto::trs!(
+        "数据目录所在的磁盘空间不足，请清理后重试。",
+        "데이터 폴더가 있는 디스크의 공간이 부족합니다. 공간을 확보한 뒤 다시 시도하십시오.",
+        "The disk with the data folder is out of space. Free up some space, then try again."
+    ))]
     DiskFull,
-    #[error(
-        "索引数据库已损坏，请在“索引数据库无法打开”窗口中选择“清除并重建”（不会删除你的文件）。"
-    )]
+    #[error("{}", rummage_proto::trs!(
+        "索引数据库已损坏，请在“索引数据库无法打开”窗口中选择“清除并重建”（不会删除你的文件）。",
+        "색인 데이터베이스가 손상되었습니다. ‘색인 데이터베이스를 열 수 없음’ 창에서 ‘지우고 다시 만들기’를 선택하십시오(파일은 삭제되지 않음).",
+        "The index database is corrupted. Choose “Clear and rebuild” in the “Can't open the index database” window (your files won't be deleted)."
+    ))]
     Corrupt,
-    #[error("索引数据库被其他程序占用，请关闭后重试。")]
+    #[error("{}", rummage_proto::trs!(
+        "索引数据库被其他程序占用，请关闭后重试。",
+        "다른 프로그램이 색인 데이터베이스를 사용하고 있습니다. 그 프로그램을 닫은 뒤 다시 시도하십시오.",
+        "Another program is using the index database. Close it, then try again."
+    ))]
     Busy,
     /// 搜索被之后的搜索取代（`search::Cancel`）
-    #[error("这次搜索已被新的搜索取代。")]
+    #[error("{}", rummage_proto::trs!(
+        "这次搜索已被新的搜索取代。",
+        "새 검색이 시작되어 이번 검색은 취소되었습니다.",
+        "This search was replaced by a newer one."
+    ))]
     Cancelled,
-    #[error(
-        "索引数据库无法打开。请重新启动 Rummage；仍然失败时，请附上数据目录中 logs 文件夹里的日志反馈问题。"
-    )]
+    #[error("{}", rummage_proto::trs!(
+        "索引数据库无法打开。请重新启动 Rummage；仍然失败时，请附上数据目录中 logs 文件夹里的日志反馈问题。",
+        "색인 데이터베이스를 열 수 없습니다. Rummage를 다시 시작하십시오. 그래도 안 되면 데이터 폴더의 logs 폴더에 있는 로그를 첨부해 문제를 알려 주십시오.",
+        "Can't open the index database. Restart Rummage; if it still fails, report the problem with the logs from the logs folder in the data folder."
+    ))]
     Sqlite,
 }
 

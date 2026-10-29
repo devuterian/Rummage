@@ -11,6 +11,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering};
 use std::time::Duration;
 
+use rummage_proto::{tr, trs};
+
 use crate::{
     Notice, NoticeKind, PENDING, RUNNING, SystemDirs, check_target, default_dir, normalize, notice,
     parse_pointer, platform, same_path, shown, write_pointer,
@@ -141,8 +143,10 @@ fn copy_tree(from: &Path, to: &Path, progress: &Progress) -> io::Result<()> {
         let (src, dst) = (entry.path(), to.join(entry.file_name()));
         let meta = fs::symlink_metadata(&src)?;
         if meta.file_type().is_symlink() {
-            return Err(io::Error::other(format!(
+            return Err(io::Error::other(tr!(
                 "数据目录中有符号链接，无法复制：{}",
+                "데이터 폴더에 심볼릭 링크가 있어 복사할 수 없습니다: {}",
+                "The data folder contains a symbolic link that can't be copied: {}",
                 shown(&src)
             )));
         }
@@ -154,18 +158,33 @@ fn copy_tree(from: &Path, to: &Path, progress: &Progress) -> io::Result<()> {
         let start = progress.done.load(Ordering::Relaxed);
         platform::copy_file(&src, &dst, progress).map_err(|err| match err.kind() {
             ErrorKind::Interrupted => err,
-            kind => io::Error::new(kind, format!("复制 \"{}\" 失败：{err}", shown(&src))),
+            kind => io::Error::new(
+                kind,
+                tr!(
+                    "复制 \"{}\" 失败：{err}",
+                    "\"{}\" 복사 실패: {err}",
+                    "Couldn't copy \"{}\": {err}",
+                    shown(&src)
+                ),
+            ),
         })?;
         if fs::metadata(&dst)?.len() != meta.len() {
-            return Err(io::Error::other(format!(
+            return Err(io::Error::other(tr!(
                 "\"{}\" 复制后大小不一致",
+                "\"{}\" 복사 후 크기가 원본과 다릅니다",
+                "\"{}\" has a different size after copying",
                 shown(&src)
             )));
         }
         sync_file(&dst).map_err(|err| {
             io::Error::new(
                 err.kind(),
-                format!("\"{}\" 写入磁盘失败：{err}", shown(&dst)),
+                tr!(
+                    "\"{}\" 写入磁盘失败：{err}",
+                    "\"{}\"를 디스크에 쓰지 못했습니다: {err}",
+                    "Couldn't write \"{}\" to disk: {err}",
+                    shown(&dst)
+                ),
             )
         })?;
         progress.done.store(start + meta.len(), Ordering::Relaxed);
@@ -190,7 +209,11 @@ fn discard(to: &Path, created: &[PathBuf]) -> Option<String> {
     }
     result.err().map(|err| {
         log::warn!("新目录中未复制完的文件未能删除：{err}");
-        "新目录中有未复制完的文件，可以删除。".to_string()
+        tr!(
+            "新目录中有未复制完的文件，可以删除。",
+            "새 폴더에 복사가 덜 된 파일이 남아 있습니다. 삭제해도 됩니다.",
+            "The new folder has partially copied files. You can delete them."
+        )
     })
 }
 
@@ -211,8 +234,10 @@ fn copy_verified(
         .map(Path::to_path_buf)
         .collect();
     if let Err(err) = fs::create_dir_all(to) {
-        return Err(Failure::new(format!(
-            "无法创建新目录，请确认该位置可以写入后重新选择。（{err}）"
+        return Err(Failure::new(tr!(
+            "无法创建新目录，请确认该位置可以写入后重新选择。（{err}）",
+            "새 폴더를 만들 수 없습니다. 이 위치에 쓸 수 있는지 확인한 뒤 다시 선택하십시오. ({err})",
+            "Couldn't create the new folder. Make sure the location is writable, then choose it again. ({err})"
         ))
         .discarding(to, &created));
     }
@@ -220,9 +245,11 @@ fn copy_verified(
     let result = from.canonicalize().and_then(|src| {
         copy_tree(&src, &to.canonicalize()?, progress)?;
         if dir_stats(to) != stats {
-            return Err(io::Error::other(
+            return Err(io::Error::other(trs!(
                 "复制结果与原目录不一致，请检查新位置所在的磁盘后重新更改。",
-            ));
+                "복사한 내용이 원래 폴더와 다릅니다. 새 위치의 디스크를 확인한 뒤 다시 변경하십시오.",
+                "The copy doesn't match the original folder. Check the disk at the new location, then change it again."
+            )));
         }
         Ok(())
     });
@@ -254,7 +281,11 @@ fn change(
         return Err(Failure::cancelled().discarding(to, &created));
     }
     if let Err(err) = write_pointer(base, pointer) {
-        let failure = Failure::new(format!("无法写入数据目录设置：{err}"));
+        let failure = Failure::new(tr!(
+            "无法写入数据目录设置：{err}",
+            "데이터 폴더 설정을 쓸 수 없습니다: {err}",
+            "Couldn't write the data folder setting: {err}"
+        ));
         return Err(failure.discarding(to, &created));
     }
     Ok(fs::remove_dir_all(from).err().map(|err| err.to_string()))
@@ -281,9 +312,11 @@ fn with_progress(
             platform::show_progress(progress);
         }
         worker.join().unwrap_or_else(|_| {
-            Err(Failure::new(
+            Err(Failure::new(trs!(
                 "迁移过程意外中断，请重新启动 Rummage 后重新更改数据目录。",
-            ))
+                "옮기는 중 예기치 않게 중단되었습니다. Rummage를 다시 시작한 뒤 데이터 폴더를 다시 변경하십시오.",
+                "Moving was interrupted unexpectedly. Restart Rummage, then change the data folder again."
+            )))
         })
     })
 }
@@ -292,18 +325,36 @@ fn with_progress(
 pub(crate) fn run_pending(base: &Path, current: &Path) -> (PathBuf, Notice) {
     let failed = |failure: Failure, to: &Path| {
         let (title, mut details) = match failure.reason {
-            None => ("已取消更改数据目录", vec![]),
-            Some(reason) => ("更改数据目录失败", vec![format!("原因：{reason}")]),
+            None => (
+                trs!(
+                    "已取消更改数据目录",
+                    "데이터 폴더 변경 취소됨",
+                    "Data folder change canceled"
+                ),
+                vec![],
+            ),
+            Some(reason) => (
+                trs!(
+                    "更改数据目录失败",
+                    "데이터 폴더 변경 실패",
+                    "Couldn't change the data folder"
+                ),
+                vec![tr!("原因：{reason}", "원인: {reason}", "Reason: {reason}")],
+            ),
         };
         details.extend(failure.leftover);
-        let mut rows = vec![("原目录", current)];
+        let mut rows = vec![(trs!("原目录", "이전 폴더", "Previous folder"), current)];
         if !to.as_os_str().is_empty() {
-            rows.push(("新目录", to));
+            rows.push((trs!("新目录", "새 폴더", "New folder"), to));
         }
         let notice = notice(
             NoticeKind::Warning,
             title,
-            "数据仍在原目录。",
+            trs!(
+                "数据仍在原目录。",
+                "데이터는 그대로 이전 폴더에 있습니다.",
+                "Your data is still in the previous folder."
+            ),
             &rows,
             details,
         );
@@ -314,8 +365,10 @@ pub(crate) fn run_pending(base: &Path, current: &Path) -> (PathBuf, Notice) {
     if let Err(err) = fs::rename(&pending, &running) {
         let _ = fs::remove_file(&pending);
         return failed(
-            Failure::new(format!(
-                "无法读取上次更改数据目录的记录，请重新更改数据目录。（{err}）"
+            Failure::new(tr!(
+                "无法读取上次更改数据目录的记录，请重新更改数据目录。（{err}）",
+                "지난번 데이터 폴더 변경 기록을 읽을 수 없습니다. 데이터 폴더를 다시 변경하십시오. ({err})",
+                "Couldn't read the record of the last data folder change. Change the data folder again. ({err})"
             )),
             Path::new(""),
         );
@@ -332,13 +385,17 @@ pub(crate) fn run_pending(base: &Path, current: &Path) -> (PathBuf, Notice) {
     let incomplete =
         pointer.is_none_or(|line| line.is_empty() && !same_path(&to, &default_dir(base)));
     let result = if from.as_os_str().is_empty() || to.as_os_str().is_empty() || incomplete {
-        Err(Failure::new(
+        Err(Failure::new(trs!(
             "上次更改数据目录的记录不完整，请重新更改数据目录。",
-        ))
+            "지난번 데이터 폴더 변경 기록이 불완전합니다. 데이터 폴더를 다시 변경하십시오.",
+            "The record of the last data folder change is incomplete. Change the data folder again."
+        )))
     } else if normalize(&from) != normalize(current) {
-        Err(Failure::new(
+        Err(Failure::new(trs!(
             "数据目录在确认更改后发生了变化，请重新更改数据目录。",
-        ))
+            "변경을 확인한 뒤 데이터 폴더가 바뀌었습니다. 데이터 폴더를 다시 변경하십시오.",
+            "The data folder changed after the change was confirmed. Change the data folder again."
+        )))
     } else {
         // 空行表示新目录是默认位置，删除指向文件
         let pointer = pointer.filter(|line| !line.is_empty());
@@ -353,9 +410,17 @@ pub(crate) fn run_pending(base: &Path, current: &Path) -> (PathBuf, Notice) {
         Ok(None) => {
             let notice = notice(
                 NoticeKind::Success,
-                "数据目录已更改",
-                "数据目录已更改。",
-                &[("新目录", &to)],
+                trs!(
+                    "数据目录已更改",
+                    "데이터 폴더 변경 완료",
+                    "Data folder changed"
+                ),
+                trs!(
+                    "数据目录已更改。",
+                    "데이터 폴더를 변경했습니다.",
+                    "The data folder has been changed."
+                ),
+                &[(trs!("新目录", "새 폴더", "New folder"), &to)],
                 vec![],
             );
             (to, notice)
@@ -364,9 +429,20 @@ pub(crate) fn run_pending(base: &Path, current: &Path) -> (PathBuf, Notice) {
             log::warn!("原数据目录未能完全删除：{detail}");
             let notice = notice(
                 NoticeKind::Warning,
-                "数据目录已更改",
-                "原目录未能清理完成，可以手动删除。",
-                &[("新目录", &to), ("原目录", &from)],
+                trs!(
+                    "数据目录已更改",
+                    "데이터 폴더 변경 완료",
+                    "Data folder changed"
+                ),
+                trs!(
+                    "原目录未能清理完成，可以手动删除。",
+                    "이전 폴더를 다 지우지 못했습니다. 직접 삭제해도 됩니다.",
+                    "The previous folder couldn't be fully removed. You can delete it yourself."
+                ),
+                &[
+                    (trs!("新目录", "새 폴더", "New folder"), &to),
+                    (trs!("原目录", "이전 폴더", "Previous folder"), &from),
+                ],
                 vec![],
             );
             (to, notice)
@@ -387,13 +463,24 @@ pub(crate) fn interrupted(
     let from = Path::new(lines.next().unwrap_or_default());
     let to = Path::new(lines.next().unwrap_or_default());
     let expected = lines.nth(1);
-    let rows = [("原目录", from), ("新目录", to)];
-    let title = "上次更改数据目录未完成";
+    let rows = [
+        (trs!("原目录", "이전 폴더", "Previous folder"), from),
+        (trs!("新目录", "새 폴더", "New folder"), to),
+    ];
+    let title = trs!(
+        "上次更改数据目录未完成",
+        "지난번 데이터 폴더 변경 미완료",
+        "Last data folder change didn't finish"
+    );
     let warn = |title, message| notice(NoticeKind::Warning, title, message, &rows, vec![]);
     let (Some(expected), Ok(raw)) = (expected, pointer) else {
         return warn(
             title,
-            "无法确定是否已复制完成。请比较两个目录中的文件，确认新目录完整后再删除原目录。",
+            trs!(
+                "无法确定是否已复制完成。请比较两个目录中的文件，确认新目录完整后再删除原目录。",
+                "복사가 끝났는지 확인할 수 없습니다. 두 폴더의 파일을 비교해 새 폴더가 완전한지 확인한 뒤 이전 폴더를 삭제하십시오.",
+                "Couldn't tell whether copying finished. Compare the files in both folders and make sure the new folder is complete before deleting the previous one."
+            ),
         );
     };
     let written = match raw {
@@ -402,7 +489,14 @@ pub(crate) fn interrupted(
         Some(line) => !expected.is_empty() && line == expected,
     };
     if !written {
-        return warn(title, "数据仍在原目录，新目录可以删除。");
+        return warn(
+            title,
+            trs!(
+                "数据仍在原目录，新目录可以删除。",
+                "데이터는 그대로 이전 폴더에 있습니다. 새 폴더는 삭제해도 됩니다.",
+                "Your data is still in the previous folder. You can delete the new folder."
+            ),
+        );
     }
     // 已写好：本次实际用上了指向文件记录的目录，才能提示原目录可以删除
     let recorded = match raw {
@@ -410,11 +504,26 @@ pub(crate) fn interrupted(
         Some(line) => parse_pointer(base, line),
     };
     if same_path(dir, &recorded) {
-        return warn("数据目录已更改", "已切换到新目录，原目录可以删除。");
+        return warn(
+            trs!(
+                "数据目录已更改",
+                "데이터 폴더 변경 완료",
+                "Data folder changed"
+            ),
+            trs!(
+                "已切换到新目录，原目录可以删除。",
+                "새 폴더로 전환했습니다. 이전 폴더는 삭제해도 됩니다.",
+                "Switched to the new folder. You can delete the previous one."
+            ),
+        );
     }
     warn(
         title,
-        "数据已复制到新目录，但新目录现在无法访问。\n\n请勿删除原目录。",
+        trs!(
+            "数据已复制到新目录，但新目录现在无法访问。\n\n请勿删除原目录。",
+            "데이터를 새 폴더로 복사했지만 지금은 새 폴더에 접근할 수 없습니다.\n\n이전 폴더를 삭제하지 마십시오.",
+            "Your data was copied to the new folder, but the new folder can't be accessed right now.\n\nDon't delete the previous folder."
+        ),
     )
 }
 

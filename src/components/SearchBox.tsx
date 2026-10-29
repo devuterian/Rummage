@@ -1,6 +1,7 @@
 import { useEffect, useState, type KeyboardEvent, type RefObject } from 'react'
 import type { ImageQuery, SimilarQuery } from '../types'
 import { abbreviateName } from '../lib/format'
+import { t } from '../lib/i18n'
 import { queryImageUrl } from '../lib/media'
 import { isAndroid } from '../lib/platform'
 import { ClockIcon, CloseIcon, ImageIcon, SearchIcon, SimilarIcon, SpinnerIcon } from './icons'
@@ -94,7 +95,7 @@ export default function SearchBox({ inputRef, text, onText, note, onNote, image,
         <div className="flex w-full items-center gap-2 rounded-xl border border-blue-400 bg-black/[0.04] py-2 pl-10 pr-20 text-sm transition duration-200 focus-within:ring-2 focus-within:ring-blue-500/30 dark:bg-white/[0.06]">
           {similar ? <SimilarIcon kind={similar.kind} className="h-4 w-4 flex-shrink-0 text-blue-500" /> : <ImageIcon className="h-4 w-4 flex-shrink-0 text-blue-500" />}
           <span className={`truncate text-gray-700 dark:text-gray-200 ${describable ? 'max-w-[50%] flex-shrink-0' : ''}`}>
-            {similar ? `相似：${similar.name}` : `以图搜图：${image?.name}`}
+            {similar ? t('相似：{name}', { name: similar.name }) : t('以图搜图：{name}', { name: image?.name ?? '' })}
             <HoverTip
               wrap
               longPress
@@ -130,8 +131,8 @@ export default function SearchBox({ inputRef, text, onText, note, onNote, image,
               spellCheck={false}
               maxLength={200}
               enterKeyHint="search"
-              placeholder="加一句描述（可选）"
-              aria-label="加一句描述"
+              placeholder={t('加一句描述（可选）')}
+              aria-label={t('加一句描述')}
               className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-gray-400 dark:text-white"
             />
           )}
@@ -155,21 +156,21 @@ export default function SearchBox({ inputRef, text, onText, note, onNote, image,
           spellCheck={false}
           enterKeyHint="search"
           // 手机上不能拖入图片
-          placeholder={isAndroid ? '搜索文件' : '搜索文件，或拖入图片以图搜图'}
-          aria-label="搜索文件"
+          placeholder={isAndroid ? t('搜索文件') : t('搜索文件，或拖入图片以图搜图')}
+          aria-label={t('搜索文件')}
           className="w-full rounded-xl border border-transparent bg-black/[0.04] py-2.5 pl-10 pr-20 text-sm outline-none transition duration-200 placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30 dark:bg-white/[0.06] dark:text-white"
         />
       )}
       <div className="absolute right-2 flex items-center gap-0.5">
         {(text || image || similar) && (
-          <button type="button" onClick={onClear} aria-label={similar ? '取消找相似' : '清空搜索'} className="rounded-full p-1.5 text-gray-400 transition duration-200 hover:bg-black/5 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-200">
+          <button type="button" onClick={onClear} aria-label={similar ? t('取消找相似') : t('清空搜索')} className="rounded-full p-1.5 text-gray-400 transition duration-200 hover:bg-black/5 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-200">
             <CloseIcon className="h-4 w-4" />
-            <HoverTip label={similar ? '清除（Esc）' : '清空（Esc）'} />
+            <HoverTip label={similar ? t('清除（Esc）') : t('清空（Esc）')} />
           </button>
         )}
-        <button type="button" onClick={onPickImage} aria-label="以图搜图" className="rounded-full p-1.5 text-gray-400 transition duration-200 hover:bg-black/5 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-200">
+        <button type="button" onClick={onPickImage} aria-label={t('以图搜图')} className="rounded-full p-1.5 text-gray-400 transition duration-200 hover:bg-black/5 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-200">
           <ImageIcon className="h-4 w-4" />
-          <HoverTip label="以图搜图" />
+          <HoverTip label={t('以图搜图')} />
         </button>
       </div>
       {open && (
@@ -177,7 +178,7 @@ export default function SearchBox({ inputRef, text, onText, note, onNote, image,
         <div
           id={LIST_ID}
           role="listbox"
-          aria-label="最近的搜索"
+          aria-label={t('最近的搜索')}
           onMouseDown={(e) => e.preventDefault()}
           className="absolute left-0 top-full z-50 mt-1.5 max-h-[22.5rem] w-full animate-dropdown-down overflow-y-auto rounded-xl border border-transparent bg-white/95 shadow-[0_8px_30px_rgb(0,0,0,0.12)] ring-1 ring-black/5 backdrop-blur-xl dark:bg-gray-800/95 dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)] dark:ring-white/[0.06]"
         >
@@ -200,11 +201,11 @@ export default function SearchBox({ inputRef, text, onText, note, onNote, image,
                   e.stopPropagation()
                   onRemoveHistory(q)
                 }}
-                aria-label={`删除“${q}”`}
+                aria-label={t('删除“{q}”', { q })}
                 className={`rounded-full p-1 text-gray-400 transition hover:bg-black/5 hover:text-gray-600 group-hover:opacity-100 dark:hover:bg-white/10 dark:hover:text-gray-200 [@media(hover:none)]:opacity-100 ${i === active ? 'opacity-100' : 'opacity-0'}`}
               >
                 <CloseIcon className="h-3.5 w-3.5" />
-                <HoverTip label="从历史中删除（Delete / Backspace）" />
+                <HoverTip label={t('从历史中删除（Delete / Backspace）')} />
               </button>
             </div>
           ))}

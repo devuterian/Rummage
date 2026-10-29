@@ -5,7 +5,7 @@
 //!   `list_failed_files`、`retry_failed_files`（见 `manage`）。都标 `openWorldHint` 为假；只读的标 `readOnlyHint`，
 //!   其余的显式标 `destructiveHint`（只有 `remove_folder` 为真：移除索引，不删文件），重复调用没有额外效果的标 `idempotentHint`。
 //!   名称、描述与服务端 instructions 用英文（给模型与工具搜索看）。MCP 自己产生的错误（找不到数据目录、连接失败、超时、
-//!   回复无法识别、参数不对等）用英文；核心返回的错误保持中文整句原样转述。
+//!   回复无法识别、参数不对等）用英文；核心返回的错误按外观设置中的语言原样转述；参数的名称与说明等同样按这个语言（连上核心时取得，见 `cli::lang_from_core`）。
 //!   来自后台服务、连接与超时的错误前面加 `Rummage: `。
 //! - 启动时不连接核心，`server/discover`、`tools/list` 立即返回；第一次调用工具时才确定数据目录并连接核心（未运行时
 //!   拉起，同命令行）。连接留着复用，请求时发现连接已断开（核心重启过）就重新连接再试一次；修改类请求已写出、等回复时断开的不重试。
@@ -146,9 +146,11 @@ impl Server {
                             "could not determine the location of rummage-core: {err}"
                         ))
                     })?;
-                    let client = client::connect_or_start(&dir, &exe, &mut None)
+                    let mut client = client::connect_or_start(&dir, &exe, &mut None)
                         .await
                         .map_err(|err| rummage(connect_error(err)))?;
+                    // 参数的名称与说明等按外观设置中的语言
+                    crate::cli::lang_from_core(&mut client).await;
                     slot.insert(Link { client, next: 0 })
                 }
             };
@@ -557,9 +559,9 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<PathBuf>
     let mut dir = None;
     while let Some(arg) = args.next() {
         if arg != "--data-dir" {
-            return Err(format!("无法识别的参数：{}。", arg.to_string_lossy()));
+            return Err(crate::cli::unknown_arg(&arg.to_string_lossy()));
         }
-        let path = args.next().ok_or("--data-dir 后面缺少路径。")?;
+        let path = args.next().ok_or_else(crate::cli::missing_dir)?;
         dir = Some(PathBuf::from(path));
     }
     Ok(dir)
@@ -574,7 +576,7 @@ pub fn run(dir: Option<PathBuf>) -> ExitCode {
     let runtime = match tokio::runtime::Runtime::new() {
         Ok(runtime) => runtime,
         Err(err) => {
-            eprintln!("无法启动异步运行时：{err}");
+            eprintln!("{}", crate::cli::no_runtime(&err));
             return ExitCode::FAILURE;
         }
     };

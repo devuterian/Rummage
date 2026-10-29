@@ -31,7 +31,7 @@ use rummage_index::{
 };
 use rummage_proto::{
     ApiError, ParamKind, Reply, Request, SearchHit, SegmentHit, SemanticUnavailable, Snippet,
-    params,
+    params, tr,
 };
 
 use super::{State, api_error, lock, opened};
@@ -122,16 +122,24 @@ fn check_image_path(path: &Path) -> Result<(), ApiError> {
     if let Some(Component::Prefix(p)) = path.components().next()
         && matches!(p.kind(), Prefix::DeviceNS(_) | Prefix::Verbatim(_))
     {
-        return Err(bad(
-            "不支持这个位置的图片，请先把它复制到本机磁盘后再搜索。".into(),
-        ));
+        return Err(bad(tr!(
+            "不支持这个位置的图片，请先把它复制到本机磁盘后再搜索。",
+            "이 위치의 이미지는 지원하지 않습니다. 이 기기의 디스크로 복사한 뒤 검색하십시오.",
+            "Images in this location aren't supported. Copy it to a local disk, then search."
+        )));
     }
     if !path.is_absolute() {
-        return Err(bad("请提供图片的完整路径。".into()));
+        return Err(bad(tr!(
+            "请提供图片的完整路径。",
+            "이미지의 전체 경로를 입력하십시오.",
+            "Provide the full path of the image."
+        )));
     }
     check_volume(path).map_err(|err| match err {
-        FsError::Unsupported { reason, .. } => bad(format!(
-            "这张图片所在的位置不受支持（{reason}），请先把它复制到本机磁盘后再搜索。"
+        FsError::Unsupported { reason, .. } => bad(tr!(
+            "这张图片所在的位置不受支持（{reason}），请先把它复制到本机磁盘后再搜索。",
+            "이 이미지가 있는 위치는 지원하지 않습니다({reason}). 이 기기의 디스크로 복사한 뒤 검색하십시오.",
+            "This image's location isn't supported ({reason}). Copy it to a local disk, then search."
         )),
         other => bad(other.to_string()),
     })
@@ -152,7 +160,12 @@ fn image_vector(
         log::warn!("无法读取以图搜图的图片 {}：{err}", path.display());
         api_error(
             ApiError::BAD_REQUEST,
-            format!("无法读取这张图片：{}", rummage_index::io_cause(&err)),
+            tr!(
+                "无法读取这张图片：{}",
+                "이 이미지를 읽을 수 없습니다: {}",
+                "Can't read this image: {}",
+                rummage_index::io_cause(&err)
+            ),
         )
     })?;
     let mtime = meta
@@ -172,8 +185,10 @@ fn image_vector(
         rummage_media::prepare(path, tier, params::max_image_pixels(&values)).map_err(|err| {
             let msg = match err {
                 // 错误本身说“不识别内容”，是给建立索引用的
-                rummage_media::Error::TooLarge { .. } => format!(
+                rummage_media::Error::TooLarge { .. } => tr!(
                     "这张图片的像素数超过设置中的“{}”，无法用于搜索。",
+                    "픽셀 수가 설정의 ‘{}’을 넘는 이미지라 검색에 쓸 수 없습니다.",
+                    "This image's pixel count exceeds ‘{}’ in Settings, so it can't be used for search.",
                     pipeline::label("max_image_mp")
                 ),
                 err => err.to_string(),
@@ -266,90 +281,100 @@ pub(super) fn request(
     let mut modality: Option<String> = None;
     // 搜索内容超过长度上限，说明原因而不是笼统的“内容识别不可用”
     let mut too_long = false;
-    let (vector, query_text): (Option<(Vec<f32>, Space)>, Option<&str>) =
-        match (similar, &image_path) {
-            // 普通图片加了文字描述：重新读取这张图片，与文字合成一条查询
-            (Some(sim), _) if !text.is_empty() => {
-                let file = lock(db)
-                    .file(sim.file_id)
-                    .map_err(|err| api_error(ApiError::UNAVAILABLE, err.to_string()))?;
-                let Some(file) = file.filter(|f| f.kind == "image") else {
-                    return Err(api_error(
-                        ApiError::BAD_REQUEST,
+    let (vector, query_text): (Option<(Vec<f32>, Space)>, Option<&str>) = match (
+        similar,
+        &image_path,
+    ) {
+        // 普通图片加了文字描述：重新读取这张图片，与文字合成一条查询
+        (Some(sim), _) if !text.is_empty() => {
+            let file = lock(db)
+                .file(sim.file_id)
+                .map_err(|err| api_error(ApiError::UNAVAILABLE, err.to_string()))?;
+            let Some(file) = file.filter(|f| f.kind == "image") else {
+                return Err(api_error(
+                    ApiError::BAD_REQUEST,
+                    tr!(
                         "只有图片找相似时可以加描述。",
-                    ));
-                };
-                filter.exclude_file = Some(sim.file_id);
-                modality = Some("image".to_string());
-                let mut engine = query_engine();
-                let target = engine.as_mut().filter(|e| e.images());
-                let Some((p, e)) = pipeline.zip(target) else {
-                    return Ok(empty(
-                        start,
-                        state,
-                        pipeline,
-                        Some(unavailable_reason(state, pipeline, true)),
-                    ));
-                };
-                (
-                    image_vector(state, p, e, &file.path, text, &mut too_long)?,
-                    None,
-                )
-            }
-            (Some(sim), _) => {
-                let found = rummage_index::stored_vector(&lock(db), sim.file_id, sim.segment_id)
-                    .map_err(|err| api_error(ApiError::UNAVAILABLE, err.to_string()))?;
-                let Some((v, space, m)) = found else {
-                    return Err(api_error(
-                        ApiError::BAD_REQUEST,
+                        "설명은 이미지로 비슷한 항목을 찾을 때만 추가할 수 있습니다.",
+                        "A description can only be added when finding items similar to an image."
+                    ),
+                ));
+            };
+            filter.exclude_file = Some(sim.file_id);
+            modality = Some("image".to_string());
+            let mut engine = query_engine();
+            let target = engine.as_mut().filter(|e| e.images());
+            let Some((p, e)) = pipeline.zip(target) else {
+                return Ok(empty(
+                    start,
+                    state,
+                    pipeline,
+                    Some(unavailable_reason(state, pipeline, true)),
+                ));
+            };
+            (
+                image_vector(state, p, e, &file.path, text, &mut too_long)?,
+                None,
+            )
+        }
+        (Some(sim), _) => {
+            let found = rummage_index::stored_vector(&lock(db), sim.file_id, sim.segment_id)
+                .map_err(|err| api_error(ApiError::UNAVAILABLE, err.to_string()))?;
+            let Some((v, space, m)) = found else {
+                return Err(api_error(
+                    ApiError::BAD_REQUEST,
+                    tr!(
                         "这个文件还没有建好索引，暂时不能找相似。",
-                    ));
-                };
-                filter.exclude_file = Some(sim.file_id);
-                modality = Some(m);
-                (Some((v, space)), None)
+                        "이 파일은 아직 색인되지 않아 비슷한 항목을 찾을 수 없습니다.",
+                        "This file isn't indexed yet, so similar items can't be found."
+                    ),
+                ));
+            };
+            filter.exclude_file = Some(sim.file_id);
+            modality = Some(m);
+            (Some((v, space)), None)
+        }
+        (None, Some(path)) => {
+            let path = Path::new(path);
+            let mut engine = query_engine();
+            let target = engine.as_mut().filter(|e| e.images());
+            let Some((p, e)) = pipeline.zip(target) else {
+                return Ok(empty(
+                    start,
+                    state,
+                    pipeline,
+                    Some(unavailable_reason(state, pipeline, true)),
+                ));
+            };
+            check_image_path(path)?;
+            (image_vector(state, p, e, path, text, &mut too_long)?, None)
+        }
+        (None, None) => {
+            if text.is_empty() {
+                return Ok(empty(start, state, pipeline, None));
             }
-            (None, Some(path)) => {
-                let path = Path::new(path);
-                let mut engine = query_engine();
-                let target = engine.as_mut().filter(|e| e.images());
-                let Some((p, e)) = pipeline.zip(target) else {
-                    return Ok(empty(
-                        start,
-                        state,
-                        pipeline,
-                        Some(unavailable_reason(state, pipeline, true)),
-                    ));
-                };
-                check_image_path(path)?;
-                (image_vector(state, p, e, path, text, &mut too_long)?, None)
-            }
-            (None, None) => {
-                if text.is_empty() {
-                    return Ok(empty(start, state, pipeline, None));
+            let mut engine = query_engine();
+            let vector = pipeline.zip(engine.as_mut()).and_then(|(p, e)| {
+                // 先查缓存，没有时计算并放进缓存；GPU 失效时 embed_query 换用新引擎，放进缓存时按调用后的引擎取空间
+                if let Some(v) = lock(&state.queries).get(text, &e.text_space().id) {
+                    return Some((v, e.text_space().clone()));
                 }
-                let mut engine = query_engine();
-                let vector = pipeline.zip(engine.as_mut()).and_then(|(p, e)| {
-                    // 先查缓存，没有时计算并放进缓存；GPU 失效时 embed_query 换用新引擎，放进缓存时按调用后的引擎取空间
-                    if let Some(v) = lock(&state.queries).get(text, &e.text_space().id) {
-                        return Some((v, e.text_space().clone()));
+                match p.embed_query(e, Input::Query(text.to_string())) {
+                    Ok(v) => {
+                        let space = e.text_space().clone();
+                        lock(&state.queries).put(text, &space.id, v.clone());
+                        Some((v, space))
                     }
-                    match p.embed_query(e, Input::Query(text.to_string())) {
-                        Ok(v) => {
-                            let space = e.text_space().clone();
-                            lock(&state.queries).put(text, &space.id, v.clone());
-                            Some((v, space))
-                        }
-                        Err(err) => {
-                            log::warn!("查询向量计算失败：{err}");
-                            too_long = matches!(err, EmbedError::QueryTooLong(_));
-                            None
-                        }
+                    Err(err) => {
+                        log::warn!("查询向量计算失败：{err}");
+                        too_long = matches!(err, EmbedError::QueryTooLong(_));
+                        None
                     }
-                });
-                (vector, Some(text))
-            }
-        };
+                }
+            });
+            (vector, Some(text))
+        }
+    };
     log::debug!(
         "查询向量用时 {:.1} 毫秒",
         t.elapsed().as_secs_f64() * 1000.0

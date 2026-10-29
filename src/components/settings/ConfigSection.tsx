@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import type { CoreStatus, ParamDef } from '../../types'
 import { errorMessage } from '../../lib/errors'
+import { t } from '../../lib/i18n'
 import { rebuildConfirmText } from '../../lib/params'
 import { useConfigImport } from '../../hooks/useConfigImport'
 import ConfirmDialog from '../ConfirmDialog'
@@ -29,18 +30,18 @@ export default function ConfigSection({ defs, offline, coreStatus }: Props) {
     setExporting(true)
     invoke<boolean>('export_config')
       .then((saved) => {
-        if (saved) showToast('配置已导出', 'success')
+        if (saved) showToast(t('配置已导出'), 'success')
       })
       .catch((err) => {
         console.warn('无法导出配置：', err)
-        showToast(errorMessage(err, '配置未能导出，请重试。'), 'error')
+        showToast(errorMessage(err, t('配置未能导出，请重试。')), 'error')
       })
       .finally(() => setExporting(false))
   }
 
   return (
     <section className="space-y-3">
-      <h4 className={SECTION_TITLE}>配置</h4>
+      <h4 className={SECTION_TITLE}>{t('配置')}</h4>
       {offline ? <CoreStatusNotice status={coreStatus} className={SECTION_NOTICE} /> : (
         <div className={CARD}>
           <div className={CARD_ROW}>
@@ -48,15 +49,15 @@ export default function ConfigSection({ defs, offline, coreStatus }: Props) {
               <SlidersIcon className="h-4 w-4" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm text-gray-800 dark:text-gray-100">配置文件</span>
-              <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">导出文件夹、排除规则和参数，可在另一台同类设备上导入。</span>
+              <span className="block text-sm text-gray-800 dark:text-gray-100">{t('配置文件')}</span>
+              <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">{t('导出文件夹、排除规则和参数，可在另一台同类设备上导入。')}</span>
             </span>
             <span className={`gap-1.5 ${ROW_ACTIONS}`}>
               <button type="button" className={SMALL_BUTTON} disabled={exporting} onClick={exportConfig}>
-                {exporting ? '正在导出' : '导出配置'}
+                {exporting ? t('正在导出') : t('导出配置')}
               </button>
               <button type="button" className={SMALL_BUTTON} disabled={imp.busy} onClick={imp.start}>
-                {imp.busy ? '正在导入' : '导入配置'}
+                {imp.busy ? t('正在导入') : t('导入配置')}
               </button>
             </span>
           </div>
@@ -64,9 +65,9 @@ export default function ConfigSection({ defs, offline, coreStatus }: Props) {
       )}
       {imp.pending && (
         <ConfirmDialog
-          title="重建索引"
+          title={t('重建索引')}
           message={rebuildConfirmText(imp.pending)}
-          confirmText="导入并重建"
+          confirmText={t('导入并重建')}
           onConfirm={imp.confirm}
           onCancel={imp.cancel}
         />

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { trimPeriod } from '../lib/format'
+import { t } from '../lib/i18n'
 import ConfirmDialog from './ConfirmDialog'
 
 type ToastType = 'success' | 'error' | 'info'
@@ -22,7 +23,7 @@ const ICON_TILE = {
   info: 'bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400',
 }
 
-/** 过长的消息改用弹窗时的标题 */
+/** 过长的消息改用弹窗时的标题；显示时翻译 */
 const DIALOG_TITLE = { success: '已完成', error: '操作失败', info: '提示' }
 
 /** 超过这个字数，胶囊通知 3 秒内读不完，手机宽度下也要折成两行以上 */
@@ -50,11 +51,11 @@ export default function Toaster() {
   const close = () => setDialogs((d) => d.slice(1))
 
   useEffect(() => {
-    listener = (t) => {
-      const msg = trimPeriod(t.message)
-      // 句末的标点不算，只看句中是否还有句号或换行
-      if (/[。！？\n]/.test(msg.slice(0, -1)) || msg.length > LONG_TOAST_CHARS) setDialogs((d) => [...d, t])
-      else setToast(t)
+    listener = (item) => {
+      const msg = trimPeriod(item.message)
+      // 句末的标点不算，只看句中是否还有句号或换行；韩语、英语的句号后跟空格
+      if (/[。！？\n]|[.!?] /.test(msg.slice(0, -1)) || msg.length > LONG_TOAST_CHARS) setDialogs((d) => [...d, item])
+      else setToast(item)
     }
     return () => {
       listener = null
@@ -84,10 +85,10 @@ export default function Toaster() {
       {dialogs[0] && (
         <ConfirmDialog
           key={dialogs[0].id}
-          title={DIALOG_TITLE[dialogs[0].type]}
+          title={t(DIALOG_TITLE[dialogs[0].type])}
           // 多行的消息每行一段
           message={dialogs[0].message.replace(/\n+/g, '\n\n')}
-          confirmText="知道了"
+          confirmText={t('知道了')}
           hideCancel
           onConfirm={close}
           onCancel={close}

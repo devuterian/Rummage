@@ -53,17 +53,43 @@ pub struct Imported {
     pub dropped: u32,
 }
 
-/// 无法导入的原因，内容是给用户看的中文整句
-#[derive(Debug, thiserror::Error, PartialEq)]
+/// 无法导入的原因，显示为给用户看的整句（按界面语言）
+#[derive(Debug, PartialEq)]
 pub enum ConfigError {
-    #[error("这不是 Rummage 的配置文件。")]
     NotConfig,
-    #[error("这个配置文件来自更新版本的 Rummage，请先更新 Rummage 再导入。")]
     TooNew,
-    #[error("这是在 {0} 上导出的配置，只能导入 {0} 版 Rummage。")]
     Platform(String),
-    #[error("配置文件已损坏，无法导入。")]
     Damaged,
+}
+
+impl std::error::Error for ConfigError {}
+
+impl std::fmt::Display for ConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let msg = match self {
+            ConfigError::NotConfig => crate::tr!(
+                "这不是 Rummage 的配置文件。",
+                "Rummage 설정 파일이 아닙니다.",
+                "This is not a Rummage configuration file."
+            ),
+            ConfigError::TooNew => crate::tr!(
+                "这个配置文件来自更新版本的 Rummage，请先更新 Rummage 再导入。",
+                "더 새로운 버전의 Rummage에서 만든 설정 파일입니다. Rummage를 업데이트한 뒤 다시 가져오십시오.",
+                "This configuration file is from a newer version of Rummage. Update Rummage, then import it again."
+            ),
+            ConfigError::Platform(p) => crate::tr!(
+                "这是在 {p} 上导出的配置，只能导入 {p} 版 Rummage。",
+                "{p}에서 내보낸 설정입니다. {p}용 Rummage에서만 가져올 수 있습니다.",
+                "This configuration was exported on {p} and can only be imported into Rummage for {p}."
+            ),
+            ConfigError::Damaged => crate::tr!(
+                "配置文件已损坏，无法导入。",
+                "설정 파일이 손상되어 가져올 수 없습니다.",
+                "The configuration file is damaged and cannot be imported."
+            ),
+        };
+        f.write_str(&msg)
+    }
 }
 
 /// 参数是否进配置：资源类与其他平台的参数不进

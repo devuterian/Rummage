@@ -1,4 +1,5 @@
 import type { BlockedGpu, DeviceResult, ParamValues, SelftestStatus, SetupStatus } from '../types'
+import { t } from './i18n'
 import { isAndroid } from './platform'
 
 /** 显示名称用到的字段，检测结果与被屏蔽的显卡都有 */
@@ -34,22 +35,24 @@ export function speedStale(d: DeviceResult, values: ParamValues | null) {
   return Object.entries(d.speed.params).some(([k, v]) => !(d.gpu && k === 'index_threads') && values[k] !== undefined && values[k] !== v)
 }
 
-/** 检测结果中的耗时是修改参数前测得的 */
+/** 检测结果中的耗时是修改参数前测得的；显示时用 `t()` 翻译 */
 export const SPEED_STALE_TEXT = '参数已修改，以下耗时为修改前的结果，重新检测后更新'
 
 /** 引导与设备页共用的检测设备说明。Android 上按装好的模型说明测哪些设备：CPU 与 GPU 用通用模型，NPU 用 NPU 模型 */
 export function selftestText(s: SetupStatus) {
-  if (!isAndroid) return '用 CPU 和每块显卡计算几条样本，确认结果正确并测速，选用最快的设备，约需几分钟。'
+  if (!isAndroid) return t('用 CPU 和每块显卡计算几条样本，确认结果正确并测速，选用最快的设备，约需几分钟。')
   const npu = Boolean(s.npu?.ready)
-  if (npu && !s.model.ready) return '用 NPU 计算几条样本，确认结果正确并测速，约需几分钟。CPU 和 GPU 要用通用模型，下载后才会检测。'
-  return `用 ${npu ? 'CPU、GPU 和 NPU' : 'CPU 和 GPU'} 计算几条样本，确认结果正确并测速，选用最快的设备，约需几分钟。`
+  if (npu && !s.model.ready) return t('用 NPU 计算几条样本，确认结果正确并测速，约需几分钟。CPU 和 GPU 要用通用模型，下载后才会检测。')
+  return npu
+    ? t('用 CPU、GPU 和 NPU 计算几条样本，确认结果正确并测速，选用最快的设备，约需几分钟。')
+    : t('用 CPU 和 GPU 计算几条样本，确认结果正确并测速，选用最快的设备，约需几分钟。')
 }
 
 
 /** 用户没有选择只用 CPU，却用 CPU 建立索引的原因，见 `cpuFallbackReason` */
 export type CpuFallback = 'detecting' | 'gpusOff' | 'notDetected' | 'stale' | 'failed' | 'blocked'
 
-/** 原因的文字，放在“正在用 CPU 建立索引”后的括号中 */
+/** 原因的文字，放在“正在用 CPU 建立索引”后的括号中；显示时用 `t()` 翻译 */
 export const CPU_FALLBACK_TEXT: Record<CpuFallback, string> = isAndroid
   ? {
       detecting: '正在检测 GPU 与 NPU',
@@ -84,7 +87,7 @@ export function switchedDevice(st: SelftestStatus | null | undefined): { from: s
 
 /** 设备页、引导中说明换了设备的整句；设备名用「」 */
 export function switchedText(s: { from: string; to: string }) {
-  return `「${s.from}」出现问题，已改用「${s.to}」。`
+  return t('「{from}」出现问题，已改用「{to}」。', { from: s.from, to: s.to })
 }
 
 /**
@@ -114,9 +117,9 @@ export function cpuFallbackReason(st: SelftestStatus | null | undefined): CpuFal
  */
 export function indexDevice(st: SelftestStatus | null | undefined): { name: string; why: string } | null {
   const s = switchedDevice(st)
-  if (s) return { name: s.to, why: `「${s.from}」出现问题` }
+  if (s) return { name: s.to, why: t('「{from}」出现问题', { from: s.from }) }
   const r = cpuFallbackReason(st)
-  return r && st ? { name: cpuName(st), why: CPU_FALLBACK_TEXT[r] } : null
+  return r && st ? { name: cpuName(st), why: t(CPU_FALLBACK_TEXT[r]) } : null
 }
 
 /** 已屏蔽的显卡的名称；与检测结果及其他已屏蔽的显卡同型号时附 PCI 号 */
@@ -129,5 +132,5 @@ export function blockedName(b: BlockedGpu, st: SelftestStatus) {
 /** 设备名称；有同型号的显卡时附上 PCI 号区分（去掉开头的域号 `0000:`），如“RTX 3070（PCI 01:00.0）” */
 export function deviceName(d: Named, all: Named[]) {
   if (!d.gpu || !d.pciId || all.filter((x) => x.gpu && x.name === d.name).length < 2) return d.name
-  return `${d.name}（PCI ${d.pciId.replace(/^0000:/, '')}）`
+  return t('{name}（PCI {id}）', { name: d.name, id: d.pciId.replace(/^0000:/, '') })
 }

@@ -13,7 +13,7 @@ use std::fs::{self, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use rummage_proto::{ApiError, ParamValue, Reply, Request};
+use rummage_proto::{ApiError, ParamValue, Reply, Request, tr, trs};
 use serde_json::{Value, json};
 use tauri::plugin::TauriPlugin;
 use tauri::{AppHandle, Manager, Runtime, State};
@@ -82,10 +82,26 @@ pub async fn open_log_dir(data: State<'_, DataDir>) -> Result<(), ApiError> {
         tauri_plugin_opener::open_path(&dir, None::<&str>).map_err(std::io::Error::other)
     })
     .await
-    .map_err(|err| error(ApiError::INTERNAL, format!("打开日志目录时出错：{err}")))?
+    .map_err(|err| {
+        error(
+            ApiError::INTERNAL,
+            tr!(
+                "打开日志目录时出错：{err}",
+                "로그 폴더를 여는 중 오류가 발생했습니다: {err}",
+                "Error opening the log folder: {err}"
+            ),
+        )
+    })?
     .map_err(|err| {
         log::warn!("无法打开日志目录：{err}");
-        error(ApiError::INTERNAL, "无法打开日志目录，请稍后再试。")
+        error(
+            ApiError::INTERNAL,
+            trs!(
+                "无法打开日志目录，请稍后再试。",
+                "로그 폴더를 열 수 없습니다. 잠시 후 다시 시도하십시오.",
+                "Couldn't open the log folder. Try again later."
+            ),
+        )
     })
 }
 
@@ -285,9 +301,16 @@ pub async fn export_diagnostics<R: Runtime>(
     #[cfg(not(target_os = "android"))]
     {
         let (tx, rx) = tokio::sync::oneshot::channel();
-        let dialog = crate::file_dialog(&app, "导出诊断包")
-            .set_file_name("Rummage 诊断包.zip")
-            .add_filter("ZIP 压缩包", &["zip"]);
+        let dialog = crate::file_dialog(
+            &app,
+            trs!("导出诊断包", "진단 파일 내보내기", "Export diagnostics"),
+        )
+        .set_file_name(trs!(
+            "Rummage 诊断包.zip",
+            "Rummage 진단 파일.zip",
+            "Rummage diagnostics.zip"
+        ))
+        .add_filter(trs!("ZIP 压缩包", "ZIP 압축 파일", "ZIP archive"), &["zip"]);
         dialog.save_file(move |path| {
             let _ = tx.send(path);
         });
@@ -298,19 +321,23 @@ pub async fn export_diagnostics<R: Runtime>(
             log::warn!("无法读取所选的保存位置：{err}");
             error(
                 ApiError::BAD_REQUEST,
-                "无法读取所选的保存位置，请重新选择。",
+                trs!(
+                    "无法读取所选的保存位置，请重新选择。",
+                    "선택한 저장 위치를 읽을 수 없습니다. 다시 선택하십시오.",
+                    "Couldn't read the selected save location. Choose it again."
+                ),
             )
         })?;
         let write = package(&app, keep_paths).await?;
         let saved = target.clone();
         tauri::async_runtime::spawn_blocking(move || write(&target))
             .await
-            .map_err(|err| error(ApiError::INTERNAL, format!("生成诊断包时出错：{err}")))?
+            .map_err(|err| error(ApiError::INTERNAL, tr!("生成诊断包时出错：{err}", "진단 파일을 만드는 중 오류가 발생했습니다: {err}", "Error creating the diagnostics package: {err}")))?
             .map_err(|err| {
                 log::warn!("无法生成诊断包：{err}");
                 error(
                     ApiError::INTERNAL,
-                    "诊断包未能保存，请确认所选位置可以写入后重试。",
+                    trs!("诊断包未能保存，请确认所选位置可以写入后重试。", "진단 파일을 저장하지 못했습니다. 선택한 위치에 쓸 수 있는지 확인한 뒤 다시 시도하십시오.", "Couldn't save the diagnostics package. Make sure the selected location is writable, then try again."),
                 )
             })?;
         Ok(Some(saved.display().to_string()))
@@ -321,9 +348,9 @@ pub async fn export_diagnostics<R: Runtime>(
         let write = package(&app, keep_paths).await?;
         crate::android::storage::save_export(
             &app,
-            "Rummage 诊断包.zip",
+            trs!("Rummage 诊断包.zip", "Rummage 진단 파일.zip", "Rummage diagnostics.zip"),
             "application/zip",
-            "诊断包未能保存，请确认所选位置可以写入后重试。",
+            trs!("诊断包未能保存，请确认所选位置可以写入后重试。", "진단 파일을 저장하지 못했습니다. 선택한 위치에 쓸 수 있는지 확인한 뒤 다시 시도하십시오.", "Couldn't save the diagnostics package. Make sure the selected location is writable, then try again."),
             write,
         )
         .await

@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core'
 import type { FailedCursor, FailedFile, FailedPage } from '../types'
 import { copyWithToast } from '../lib/clipboard'
 import { errorMessage } from '../lib/errors'
+import { t } from '../lib/i18n'
 import { useEscape } from '../hooks/useEscape'
 import ConfirmDialog, { renderMessage } from './ConfirmDialog'
 import { CloseIcon, KindIcon } from './icons'
@@ -89,7 +90,7 @@ export default function FailedFilesDialog({ onClose }: { onClose: () => void }) 
       })
       .catch((err) => {
         console.warn('无法读取失败的文件：', err)
-        setPageError(errorMessage(err, '无法读取失败的文件，请稍后再试。'))
+        setPageError(errorMessage(err, t('无法读取失败的文件，请稍后再试。')))
       })
       .finally(() => {
         loading.current = false
@@ -136,7 +137,7 @@ export default function FailedFilesDialog({ onClose }: { onClose: () => void }) 
       })
       .catch((err) => {
         console.warn(ignore ? '忽略失败的文件时出错：' : '重试失败的文件时出错：', err)
-        showToast(errorMessage(err, ignore ? '无法忽略，请稍后再试' : '无法重试，请稍后再试'), 'error')
+        showToast(errorMessage(err, ignore ? t('无法忽略，请稍后再试') : t('无法重试，请稍后再试')), 'error')
       })
       .finally(() => setBusy(null))
   }
@@ -144,7 +145,7 @@ export default function FailedFilesDialog({ onClose }: { onClose: () => void }) 
   const open = (file: FailedFile) => {
     invoke('open_file', { fileId: file.fileId }).catch((err) => {
       console.warn('无法打开这个文件：', err)
-      showToast(errorMessage(err, '无法打开这个文件'), 'error')
+      showToast(errorMessage(err, t('无法打开这个文件')), 'error')
     })
   }
 
@@ -155,7 +156,7 @@ export default function FailedFilesDialog({ onClose }: { onClose: () => void }) 
       .then(onClose)
       .catch((err) => {
         console.warn('忽略全部失败的文件时出错：', err)
-        showToast(errorMessage(err, '无法忽略，请稍后再试'), 'error')
+        showToast(errorMessage(err, t('无法忽略，请稍后再试')), 'error')
       })
       .finally(() => setBusy(null))
   }
@@ -166,7 +167,7 @@ export default function FailedFilesDialog({ onClose }: { onClose: () => void }) 
       .then(onClose)
       .catch((err) => {
         console.warn('重试全部失败的文件时出错：', err)
-        showToast(errorMessage(err, '无法重试，请稍后再试'), 'error')
+        showToast(errorMessage(err, t('无法重试，请稍后再试')), 'error')
       })
       .finally(() => setBusy(null))
   }
@@ -177,28 +178,28 @@ export default function FailedFilesDialog({ onClose }: { onClose: () => void }) 
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="失败的文件"
+        aria-label={t('失败的文件')}
         className="relative z-10 flex h-[85vh] max-h-[min(640px,100%)] w-full max-w-2xl animate-confirm-in flex-col rounded-3xl border border-white/50 bg-white/90 shadow-[0_8px_40px_rgb(0,0,0,0.12)] ring-1 ring-black/5 backdrop-blur-xl dark:border-white/[0.08] dark:bg-gray-900/90 dark:shadow-[0_8px_40px_rgb(0,0,0,0.4)] dark:ring-white/10"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="shrink-0 px-6 pb-3 pt-6">
           <div className="flex items-center justify-between gap-4">
             <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">
-              失败的文件
-              {total !== null && <span className="ml-2 text-sm font-normal text-gray-400 dark:text-gray-500">共 {total} 个</span>}
+              {t('失败的文件')}
+              {total !== null && <span className="ml-2 text-sm font-normal text-gray-400 dark:text-gray-500">{t('共 {n} 个', { n: total })}</span>}
             </h3>
             <button
               type="button"
               onClick={onClose}
               className="shrink-0 rounded-full p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
-              aria-label="关闭"
+              aria-label={t('关闭')}
             >
               <CloseIcon className="h-5 w-5" />
             </button>
           </div>
           <div className="mt-2 space-y-1.5 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-            <p>这些文件建立索引时出错，没有另外说明的只能按文件名搜索。连续失败 3 次后不再自动处理，文件修改后会重新尝试。</p>
-            <p>排除问题后可以重试，加密文档去掉密码后会自动重新处理；不需要索引的文件可以忽略，加入排除规则并从索引中移除。</p>
+            <p>{t('这些文件建立索引时出错，没有另外说明的只能按文件名搜索。连续失败 3 次后不再自动处理，文件修改后会重新尝试。')}</p>
+            <p>{t('排除问题后可以重试，加密文档去掉密码后会自动重新处理；不需要索引的文件可以忽略，加入排除规则并从索引中移除。')}</p>
           </div>
         </div>
 
@@ -207,7 +208,7 @@ export default function FailedFilesDialog({ onClose }: { onClose: () => void }) 
           onScroll={(e) => setView({ top: e.currentTarget.scrollTop, height: e.currentTarget.clientHeight })}
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 [scrollbar-gutter:stable]"
         >
-          {total === 0 && <p className="py-10 text-center text-sm text-gray-400 dark:text-gray-500">没有失败的文件</p>}
+          {total === 0 && <p className="py-10 text-center text-sm text-gray-400 dark:text-gray-500">{t('没有失败的文件')}</p>}
           <div className="relative" style={{ height }}>
             {files.slice(range.start, range.end).map((f, i) => {
               const dir = f.path.slice(0, Math.max(0, f.path.length - f.name.length - 1))
@@ -228,7 +229,7 @@ export default function FailedFilesDialog({ onClose }: { onClose: () => void }) 
                     </button>
                     <button type="button" onClick={() => void copyWithToast(f.path, '路径')} className={`mt-0.5 block text-xs text-gray-400 dark:text-gray-500 ${LINK_TEXT}`}>
                       <PathText path={dir} />
-                      <HoverTip label="复制路径" />
+                      <HoverTip label={t('复制路径')} />
                     </button>
                     {f.reason && (
                       <span data-selectable-text className="mt-0.5 block text-xs text-red-500 [overflow-wrap:anywhere] dark:text-red-400">
@@ -238,11 +239,11 @@ export default function FailedFilesDialog({ onClose }: { onClose: () => void }) 
                     <span className="mt-2 flex justify-end gap-1.5">
                       {f.retryable && (
                         <button type="button" className={SMALL_BUTTON} disabled={busy !== null} onClick={() => act(f, false)}>
-                          重试
+                          {t('重试')}
                         </button>
                       )}
                       <button type="button" className={SMALL_BUTTON} disabled={busy !== null} onClick={() => act(f, true)}>
-                        忽略
+                        {t('忽略')}
                       </button>
                     </span>
                   </span>
@@ -254,7 +255,7 @@ export default function FailedFilesDialog({ onClose }: { onClose: () => void }) 
             <div className="flex items-center gap-3 py-3">
               <p data-selectable-text className={`flex-1 ${ERROR_TEXT}`}>{pageError}</p>
               <button type="button" className={`flex-shrink-0 ${SMALL_BUTTON}`} onClick={load}>
-                重试
+                {t('重试')}
               </button>
             </div>
           )}
@@ -263,22 +264,22 @@ export default function FailedFilesDialog({ onClose }: { onClose: () => void }) 
         <div className="shrink-0 px-6 pb-6 pt-4">
           <div className="flex gap-2">
             <button type="button" className={`flex-1 whitespace-nowrap max-sm:px-2 ${BUTTON}`} onClick={onClose}>
-              关闭
+              {t('关闭')}
             </button>
             <button type="button" className={`flex-1 whitespace-nowrap max-sm:px-2 ${BUTTON}`} disabled={busy !== null || !total} onClick={() => setConfirmIgnore(true)}>
-              {busy === 'ignoreAll' ? '正在忽略' : '全部忽略'}
+              {busy === 'ignoreAll' ? t('正在忽略') : t('全部忽略')}
             </button>
             <button type="button" className={`flex-1 whitespace-nowrap max-sm:px-2 ${PRIMARY_BUTTON}`} disabled={busy !== null || !retryable} onClick={retryAll}>
-              {busy === 'all' ? '正在重试' : '全部重试'}
+              {busy === 'all' ? t('正在重试') : t('全部重试')}
             </button>
           </div>
         </div>
         {/* 放在面板内：点遮罩取消时不连带关闭本弹窗 */}
         {confirmIgnore && (
           <ConfirmDialog
-            title="全部忽略"
-            message={`将忽略全部 ${total ?? 0} 个失败的文件：加入各自所在文件夹的排除规则，并从索引中移除，之后不再跟进它们的变化。\n\n需要时可以在「设置 → 文件夹」的排除规则中删除对应的规则。`}
-            confirmText="全部忽略"
+            title={t('全部忽略')}
+            message={t('将忽略全部 {n} 个失败的文件：加入各自所在文件夹的排除规则，并从索引中移除，之后不再跟进它们的变化。\n\n需要时可以在「设置 → 文件夹」的排除规则中删除对应的规则。', { n: total ?? 0 })}
+            confirmText={t('全部忽略')}
             onConfirm={ignoreAll}
             onCancel={() => setConfirmIgnore(false)}
           />

@@ -1,4 +1,4 @@
-package com.cooksleep.rummage.storage
+package com.marierie.rummage.storage
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

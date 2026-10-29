@@ -4,6 +4,7 @@ import type { IndexStatus, PauseFor, PauseReason } from '../types'
 import { useClickOutside } from '../hooks/useClickOutside'
 import { errorMessage } from '../lib/errors'
 import { formatDuration, pad2 } from '../lib/format'
+import { t } from '../lib/i18n'
 import { renderMessage } from './ConfirmDialog'
 import { PauseIcon, WarningIcon } from './icons'
 import { NOTICE_BOX } from './settings/styles'
@@ -43,11 +44,11 @@ const PAUSE_OPTIONS: { label: string; value: PauseFor }[] = [
 function resumeText(until: number | null, now: Date) {
   if (until == null) return ''
   // 已到期、核心还没清除（每 5 秒判定一次）
-  if (until <= now.getTime()) return '，即将恢复'
-  const t = new Date(until)
-  const clock = `${t.getHours()}:${pad2(t.getMinutes())}`
-  if (t.toDateString() === now.toDateString()) return `，到 ${clock} 恢复`
-  return `，到 ${t.getMonth() + 1}月${t.getDate()}日 ${clock} 恢复`
+  if (until <= now.getTime()) return t('，即将恢复')
+  const d = new Date(until)
+  const clock = `${d.getHours()}:${pad2(d.getMinutes())}`
+  if (d.toDateString() === now.toDateString()) return t('，到 {clock} 恢复', { clock })
+  return t('，到 {month}月{day}日 {clock} 恢复', { month: d.getMonth() + 1, day: d.getDate(), clock })
 }
 
 /** 进度条的比例；没有进度条时为空：建立索引中，或按新设置重建中 */
@@ -66,24 +67,30 @@ function progress(s: IndexStatus) {
 export function indexHint(s: IndexStatus, now = new Date(), device: { name: string; why: string } | null = null) {
   // 本轮的进度由核心统一计算，与托盘、Android 的进度通知一致；有待处理的文件时才有
   const r = s.round
-  if (s.state === 'no_model') return s.error ?? '尚未下载文字模型，无法识别文件内容。可在「设置 → 模型」中下载或导入，之后会继续建立索引。'
-  if (s.state === 'error') return s.error ?? '内容识别无法启动，目前只能按文件名搜索。请重新启动 Rummage，或在「设置 → 设备」中选择使用 CPU。'
-  if (s.state === 'no_mmproj') return '尚未下载图片与音视频模型，图片、音频和视频目前只能按文件名搜索。可在「设置 → 模型」中下载或导入。'
+  if (s.state === 'no_model') return s.error ?? t('尚未下载文字模型，无法识别文件内容。可在「设置 → 模型」中下载或导入，之后会继续建立索引。')
+  if (s.state === 'error') return s.error ?? t('内容识别无法启动，目前只能按文件名搜索。请重新启动 Rummage，或在「设置 → 设备」中选择使用 CPU。')
+  if (s.state === 'no_mmproj') return t('尚未下载图片与音视频模型，图片、音频和视频目前只能按文件名搜索。可在「设置 → 模型」中下载或导入。')
   if (s.paused?.type === 'manual') {
     const resume = resumeText(s.paused.until, now)
-    if (!r) return `索引已暂停${resume}`
-    return `索引已暂停：已处理 ${r.done} / ${r.total}${resume}，完成前，尚未处理的文件只能按文件名搜索`
+    if (!r) return t('索引已暂停{resume}', { resume })
+    return t('索引已暂停：已处理 {done} / {total}{resume}，完成前，尚未处理的文件只能按文件名搜索', { done: r.done, total: r.total, resume })
   }
-  const paused = s.paused ? `（${PAUSE_TEXT[s.paused.type]}）` : s.slow ? '（手机发热，已放慢）' : ''
-  const eta = s.etaS != null ? `，预计还需${formatDuration(s.etaS)}` : ''
+  const paused = s.paused ? t('（{reason}）', { reason: t(PAUSE_TEXT[s.paused.type]) }) : s.slow ? t('（手机发热，已放慢）') : ''
+  const eta = s.etaS != null ? t('，预计还需{time}', { time: formatDuration(s.etaS) }) : ''
   const used = s.paused ? null : device
-  const by = used ? `用「${used.name}」` : ''
-  const why = used ? `（${used.why}）` : ''
-  if (r) return `正在${by}建立索引${why}：已处理 ${r.done} / ${r.total}${paused}${eta}，完成前，尚未处理的文件只能按文件名搜索`
+  if (r) {
+    const vars = { done: r.done, total: r.total, paused, eta }
+    return used
+      ? t('正在用「{device}」建立索引（{why}）：已处理 {done} / {total}{paused}{eta}，完成前，尚未处理的文件只能按文件名搜索', { ...vars, device: used.name, why: used.why })
+      : t('正在建立索引：已处理 {done} / {total}{paused}{eta}，完成前，尚未处理的文件只能按文件名搜索', vars)
+  }
   // 新文件都处理完后才重建；重建期间旧索引照常可搜
   const rb = s.rebuild
   if (!rb) return null
-  return `正在${by}按新设置重建索引${why}：已完成 ${rb.done} / ${rb.total}${paused}${eta}`
+  const vars = { done: rb.done, total: rb.total, paused, eta }
+  return used
+    ? t('正在用「{device}」按新设置重建索引（{why}）：已完成 {done} / {total}{paused}{eta}', { ...vars, device: used.name, why: used.why })
+    : t('正在按新设置重建索引：已完成 {done} / {total}{paused}{eta}', vars)
 }
 
 interface Props {
@@ -123,7 +130,7 @@ export default function IndexHint({ status, onFailed, onAdjust, up = false, devi
     invoke(cmd, args)
       .catch((err) => {
         console.warn('暂停或恢复索引失败：', err)
-        showToast(errorMessage(err, '操作失败，请稍后再试。'), 'error')
+        showToast(errorMessage(err, t('操作失败，请稍后再试。')), 'error')
       })
       .finally(() => setBusy(false))
   }
@@ -136,7 +143,7 @@ export default function IndexHint({ status, onFailed, onAdjust, up = false, devi
       onClick={() => run('resume_indexing')}
       className="flex-shrink-0 rounded-md px-1.5 py-0.5 text-xs text-blue-500 transition hover:bg-black/[0.05] disabled:opacity-50 dark:text-blue-400 dark:hover:bg-white/[0.08]"
     >
-      恢复
+      {t('恢复')}
     </button>
   )
 
@@ -158,7 +165,7 @@ export default function IndexHint({ status, onFailed, onAdjust, up = false, devi
             onClick={() => onAdjust(adjust)}
             className="flex-shrink-0 text-xs text-blue-500 underline underline-offset-2 transition hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
           >
-            调整
+            {t('调整')}
           </button>
         )}
         {failed > 0 && (
@@ -167,7 +174,7 @@ export default function IndexHint({ status, onFailed, onAdjust, up = false, devi
             onClick={onFailed}
             className="flex-shrink-0 text-xs text-blue-500 transition max-sm:order-first max-sm:basis-full max-sm:text-center hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
           >
-            {failed} 个文件失败
+            {t('{n} 个文件失败', { n: failed })}
           </button>
         )}
         {!running && manual && resume}
@@ -183,7 +190,7 @@ export default function IndexHint({ status, onFailed, onAdjust, up = false, devi
             <div ref={menuRef} className="relative flex-shrink-0">
               <button
                 type="button"
-                aria-label="暂停索引"
+                aria-label={t('暂停索引')}
                 aria-haspopup="menu"
                 aria-expanded={open}
                 disabled={busy}
@@ -197,7 +204,7 @@ export default function IndexHint({ status, onFailed, onAdjust, up = false, devi
                 className="flex rounded-md p-0.5 text-gray-400 transition hover:bg-black/[0.05] hover:text-gray-600 disabled:opacity-50 dark:text-gray-500 dark:hover:bg-white/[0.08] dark:hover:text-gray-300"
               >
                 <PauseIcon className="h-4 w-4" />
-                <HoverTip label="暂停索引" hide={open} />
+                <HoverTip label={t('暂停索引')} hide={open} />
               </button>
               {open && (
                 <div
@@ -211,7 +218,7 @@ export default function IndexHint({ status, onFailed, onAdjust, up = false, devi
                       onClick={() => run('pause_indexing', { until: o.value })}
                       className="flex min-h-9 cursor-pointer items-center px-3 py-2 text-xs text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.06]"
                     >
-                      {o.label}
+                      {t(o.label)}
                     </div>
                   ))}
                 </div>

@@ -66,7 +66,11 @@ fn is_image(path: &Path) -> bool {
 #[tauri::command]
 pub async fn pick_image<R: Runtime>(app: tauri::AppHandle<R>) -> Option<ImageQuery> {
     let (tx, rx) = tokio::sync::oneshot::channel();
-    let dialog = crate::file_dialog(&app, "选择图片").add_filter("图片", IMAGE_EXTS);
+    let dialog = crate::file_dialog(
+        &app,
+        rummage_proto::trs!("选择图片", "이미지 선택", "Choose an image"),
+    )
+    .add_filter(rummage_proto::trs!("图片", "이미지", "Images"), IMAGE_EXTS);
     dialog.pick_file(move |file| {
         let _ = tx.send(file);
     });

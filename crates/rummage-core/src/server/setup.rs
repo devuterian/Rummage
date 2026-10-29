@@ -59,7 +59,7 @@ use rummage_index::Db;
 use rummage_proto::{
     AUTO_DEVICE, ApiError, CPU_DEVICE, Estimate, Event, KindTotal, ModelFileStatus, ModelTask,
     ModelTaskKind, ModelTaskPhase, ModelTaskState, ParamValue, Reply, Request, RootEstimate,
-    SelftestStatus, SetupStatus, params,
+    SelftestStatus, SetupStatus, params, tr, trs,
 };
 
 use super::{State, api_error, db, lock, unavailable};
@@ -118,8 +118,20 @@ impl Files {
 fn files(cfg: &Config, slot: Slot) -> Option<Files> {
     let Some(lite) = &cfg.litert else {
         let (file, path, label) = match slot {
-            Slot::Main => (&space::MODEL, &cfg.model, "文字模型"),
-            Slot::Mmproj => (&space::MMPROJ, &cfg.mmproj, "图片与音视频模型"),
+            Slot::Main => (
+                &space::MODEL,
+                &cfg.model,
+                trs!("文字模型", "텍스트 모델", "text model"),
+            ),
+            Slot::Mmproj => (
+                &space::MMPROJ,
+                &cfg.mmproj,
+                trs!(
+                    "图片与音视频模型",
+                    "이미지·오디오·동영상 모델",
+                    "image, audio and video model"
+                ),
+            ),
             Slot::Npu => return None,
         };
         return Some(Files {
@@ -131,7 +143,7 @@ fn files(cfg: &Config, slot: Slot) -> Option<Files> {
     let tokenizer = (Pinned::TOKENIZER, lite.tokenizer.clone());
     if slot != Slot::Npu {
         return Some(Files {
-            label: "通用模型",
+            label: trs!("通用模型", "범용 모델", "general model"),
             hf: vec![
                 (Pinned::litert(&space::LITERT_MODEL), cfg.model.clone()),
                 tokenizer,
@@ -141,7 +153,7 @@ fn files(cfg: &Config, slot: Slot) -> Option<Files> {
     }
     let (m, (path, dir)) = (npu::local()?, lite.npu.as_ref()?);
     Some(Files {
-        label: "NPU 模型",
+        label: trs!("NPU 模型", "NPU 모델", "NPU model"),
         hf: vec![(Pinned::litert(&m.file), path.clone()), tokenizer],
         qnn: npu::qnn_entries(m.vendor)
             .into_iter()
@@ -188,10 +200,16 @@ fn bad_request(msg: impl Into<String>) -> ApiError {
 }
 
 pub(super) fn config(state: &State) -> Result<&Config, ApiError> {
-    state
-        .config
-        .get()
-        .ok_or_else(|| api_error(ApiError::UNAVAILABLE, "后台服务尚未就绪，请稍后再试。"))
+    state.config.get().ok_or_else(|| {
+        api_error(
+            ApiError::UNAVAILABLE,
+            tr!(
+                "后台服务尚未就绪，请稍后再试。",
+                "백그라운드 서비스가 아직 준비되지 않았습니다. 잠시 후 다시 시도하십시오.",
+                "The background service isn't ready yet. Try again later."
+            ),
+        )
+    })
 }
 
 fn models_dir(cfg: &Config) -> PathBuf {
@@ -362,12 +380,20 @@ pub(super) fn respond(state: &Arc<State>, body: Request) -> Result<Reply, ApiErr
                 for (f, path) in &all {
                     set_verified(&s, f.name, Some((path, true)));
                 }
-                Ok("模型已就绪。".to_string())
+                Ok(tr!(
+                    "模型已就绪。",
+                    "모델이 준비되었습니다.",
+                    "Models are ready."
+                ))
             })
         }
         Request::ImportModels { paths } => {
             if paths.is_empty() {
-                return Err(bad_request("请选择要导入的模型文件。"));
+                return Err(bad_request(tr!(
+                    "请选择要导入的模型文件。",
+                    "가져올 모델 파일을 선택하십시오.",
+                    "Choose the model files to import."
+                )));
             }
             let cfg = config(state)?;
             let dir = models_dir(cfg);
@@ -391,9 +417,14 @@ pub(super) fn respond(state: &Arc<State>, body: Request) -> Result<Reply, ApiErr
                         }
                     }
                     if names.is_empty() {
-                        return "已导入。".to_string();
+                        return tr!("已导入。", "가져왔습니다.", "Imported.");
                     }
-                    format!("已导入{}。", names.join("和"))
+                    tr!(
+                        "已导入{}。",
+                        "{}를 가져왔습니다.",
+                        "Imported the {}.",
+                        names.join(trs!("和", "와 ", " and the "))
+                    )
                 })
             })
         }
@@ -405,14 +436,24 @@ pub(super) fn respond(state: &Arc<State>, body: Request) -> Result<Reply, ApiErr
             let cfg = config(state)?;
             let row = files(cfg, Slot::of(mmproj, npu)).ok_or_else(no_npu)?;
             if !row.ready() {
-                return Err(bad_request(format!(
+                return Err(bad_request(tr!(
                     "{}尚未安装，请先下载或导入。",
+                    "{}가 아직 설치되지 않았습니다. 먼저 다운로드하거나 가져오십시오.",
+                    "The {} isn't installed yet. Download or import it first.",
                     row.label
                 )));
             }
             let label = row.label;
             let list = row.all().into_iter().map(|(f, p)| (f, p, label)).collect();
-            verify_models(state, list, format!("{label}校验通过。"))
+            verify_models(
+                state,
+                list,
+                tr!(
+                    "{label}校验通过。",
+                    "{label} 검사를 통과했습니다.",
+                    "The {label} passed verification."
+                ),
+            )
         }
         Request::VerifyModels { mmproj, npu } => {
             let cfg = config(state)?;
@@ -444,7 +485,15 @@ pub(super) fn respond(state: &Arc<State>, body: Request) -> Result<Reply, ApiErr
             if list.is_empty() {
                 return Ok(Reply::Done);
             }
-            verify_models(state, list, "模型校验通过。".to_string())
+            verify_models(
+                state,
+                list,
+                tr!(
+                    "模型校验通过。",
+                    "모델 검사를 통과했습니다.",
+                    "Models passed verification."
+                ),
+            )
         }
         Request::DeleteModel { mmproj, npu } => {
             let cfg = config(state)?;
@@ -491,9 +540,17 @@ pub(super) fn respond(state: &Arc<State>, body: Request) -> Result<Reply, ApiErr
                     log::warn!("无法把所选的设备改回自动选择：{}", err.message);
                 }
                 Ok(if installed {
-                    format!("已删除{label}。")
+                    tr!(
+                        "已删除{label}。",
+                        "{label}를 삭제했습니다.",
+                        "Deleted the {label}."
+                    )
                 } else {
-                    "已删除下载了一部分的文件。".to_string()
+                    tr!(
+                        "已删除下载了一部分的文件。",
+                        "일부만 다운로드된 파일을 삭제했습니다.",
+                        "Deleted the partly downloaded files."
+                    )
                 })
             })
         }
@@ -520,7 +577,11 @@ pub(super) fn respond(state: &Arc<State>, body: Request) -> Result<Reply, ApiErr
 
 /// 芯片没有 NPU 版模型时请求 NPU 模型的回复
 fn no_npu() -> ApiError {
-    bad_request("这台设备的芯片没有对应的 NPU 模型。")
+    bad_request(tr!(
+        "这台设备的芯片没有对应的 NPU 模型。",
+        "이 기기의 칩에 맞는 NPU 모델이 없습니다.",
+        "There's no NPU model for this device's chip."
+    ))
 }
 
 fn status(state: &State) -> Result<SetupStatus, ApiError> {
@@ -612,18 +673,22 @@ fn verify_models(
             })?;
             // 没记下时引导会一直等校验记录，按失败结束
             if !set_verified(&s, file.name, Some((path, ok))) {
-                return Err(models::Error::Failed(
-                    "无法保存校验结果，请重试。".to_string(),
-                ));
+                return Err(models::Error::Failed(tr!(
+                    "无法保存校验结果，请重试。",
+                    "검사 결과를 저장할 수 없습니다. 다시 시도하십시오.",
+                    "Can't save the verification result. Try again."
+                )));
             }
             if !ok {
                 failed.push(*label);
             }
         }
         if !failed.is_empty() {
-            return Err(models::Error::Failed(format!(
+            return Err(models::Error::Failed(tr!(
                 "{}已损坏或不完整，请重新下载或导入。",
-                failed.join("和")
+                "{}가 손상되었거나 불완전합니다. 다시 다운로드하거나 가져오십시오.",
+                "Damaged or incomplete: {}. Download or import again.",
+                failed.join(trs!("和", "와 ", ", "))
             )));
         }
         Ok(done)
@@ -647,12 +712,18 @@ fn start_task(
             .as_ref()
             .is_some_and(|t| t.state == ModelTaskState::Running)
         {
-            return Err(bad_request(
+            return Err(bad_request(tr!(
                 "模型正在下载、导入、校验或删除，请等它完成后再试。",
-            ));
+                "모델을 다운로드, 가져오기, 검사 또는 삭제하는 중입니다. 끝난 뒤 다시 시도하십시오.",
+                "A model download, import, verification or deletion is in progress. Try again when it finishes."
+            )));
         }
         if kind != ModelTaskKind::Verify && selftest.running {
-            return Err(bad_request("设备检测正在进行，请等它完成后再试。"));
+            return Err(bad_request(tr!(
+                "设备检测正在进行，请等它完成后再试。",
+                "기기 감지가 진행 중입니다. 끝난 뒤 다시 시도하십시오.",
+                "Device detection is in progress. Try again when it finishes."
+            )));
         }
         *lock(&state.setup.cancel) = cancel.clone();
         let t = ModelTask {
@@ -694,11 +765,11 @@ fn start_task(
                     t.speed = p.speed;
                 })
             });
-            let verb = match kind {
-                ModelTaskKind::Download => "下载",
-                ModelTaskKind::Import => "导入",
-                ModelTaskKind::Verify => "校验",
-                ModelTaskKind::Delete => "删除",
+            let (verb, verb_ko, verb_en) = match kind {
+                ModelTaskKind::Download => ("下载", "다운로드", "Download"),
+                ModelTaskKind::Import => ("导入", "가져오기", "Import"),
+                ModelTaskKind::Verify => ("校验", "검사", "Verification"),
+                ModelTaskKind::Delete => ("删除", "삭제", "Deletion"),
             };
             if let Err(models::Error::Failed(msg)) = &res {
                 log::warn!("模型{verb}失败：{msg}");
@@ -710,10 +781,16 @@ fn start_task(
                     Err(models::Error::Cancelled) => (
                         ModelTaskState::Cancelled,
                         Some(match kind {
-                            ModelTaskKind::Download => {
-                                "已取消下载，已下载的部分会保留，下次继续。".to_string()
-                            }
-                            _ => format!("已取消{verb}。"),
+                            ModelTaskKind::Download => tr!(
+                                "已取消下载，已下载的部分会保留，下次继续。",
+                                "다운로드를 취소했습니다. 받은 부분은 남겨 두고 다음에 이어받습니다.",
+                                "Download cancelled. The downloaded part is kept and will resume next time."
+                            ),
+                            _ => tr!(
+                                "已取消{verb}。",
+                                "{verb_ko}를 취소했습니다.",
+                                "{verb_en} cancelled."
+                            ),
                         }),
                     ),
                     Err(models::Error::Failed(msg)) => (ModelTaskState::Failed, Some(msg)),
@@ -727,9 +804,20 @@ fn start_task(
         log::error!("无法启动模型任务线程：{err}");
         state.update_task(|t| {
             t.state = ModelTaskState::Failed;
-            t.message = Some("无法开始任务，请重试。".into());
+            t.message = Some(tr!(
+                "无法开始任务，请重试。",
+                "작업을 시작할 수 없습니다. 다시 시도하십시오.",
+                "Can't start the task. Try again."
+            ));
         });
-        return Err(api_error(ApiError::INTERNAL, "无法开始任务，请重试。"));
+        return Err(api_error(
+            ApiError::INTERNAL,
+            tr!(
+                "无法开始任务，请重试。",
+                "작업을 시작할 수 없습니다. 다시 시도하십시오.",
+                "Can't start the task. Try again."
+            ),
+        ));
     }
     Ok(Reply::Done)
 }

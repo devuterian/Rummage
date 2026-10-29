@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import type { ModelFileStatus, ModelSource, ModelTask, ProxySetting, SelftestStatus, SetupStatus } from '../../types'
 import { formatSize } from '../../lib/format'
+import { t } from '../../lib/i18n'
 import { isAndroid, openExternal } from '../../lib/platform'
 import { ChevronRightIcon, CpuIcon, DocumentIcon, FileIcon, ImageIcon, NpuIcon, PauseIcon, PlayIcon } from '../icons'
 import { HoverTip } from '../Tip'
@@ -49,7 +50,7 @@ export function modelInfos(status: SetupStatus): ModelInfo[] {
     npu: false,
     label: GENERIC_LABEL,
     model: 'EmbeddingGemma 2',
-    desc: status.npu ? '本机 NPU 用不了时，用 GPU 或 CPU 识别。' : '用 GPU 或 CPU 识别所有文件。',
+    desc: status.npu ? t('本机 NPU 用不了时，用 GPU 或 CPU 识别。') : t('用 GPU 或 CPU 识别所有文件。'),
     icon: <CpuIcon className="h-4 w-4" />,
   }
   if (!status.npu) return [generic]
@@ -57,8 +58,8 @@ export function modelInfos(status: SetupStatus): ModelInfo[] {
     mmproj: false,
     npu: true,
     label: NPU_LABEL,
-    model: 'EmbeddingGemma 2 NPU 版',
-    desc: `为本机芯片${status.npuChip ? `（${status.npuChip}）` : ''}编译，用 NPU 识别，速度最快。`,
+    model: t('EmbeddingGemma 2 NPU 版'),
+    desc: status.npuChip ? t('为本机芯片（{chip}）编译，用 NPU 识别，速度最快。', { chip: status.npuChip }) : t('为本机芯片编译，用 NPU 识别，速度最快。'),
     icon: <NpuIcon className="h-4 w-4" />,
   }
   return [npu, generic]
@@ -89,11 +90,11 @@ export function anyModelReady(status: SetupStatus) {
 /** 任务进度中把文件名换成模型的用途名称（`TaskProgress` 的 `label`） */
 export function modelLabel(status: SetupStatus) {
   return (file: string) => {
-    if (!isAndroid) return file === status.mmproj.name ? MMPROJ_LABEL : MODEL_LABEL
-    if (file === status.npu?.name) return ` ${NPU_LABEL}`
-    if (file === status.model.name) return GENERIC_LABEL
-    if (file.startsWith('libQnn')) return ' NPU 运行库'
-    return file === 'tokenizer.json' ? '分词器' : ` ${file}`
+    if (!isAndroid) return file === status.mmproj.name ? t(MMPROJ_LABEL) : t(MODEL_LABEL)
+    if (file === status.npu?.name) return ` ${t(NPU_LABEL)}`
+    if (file === status.model.name) return t(GENERIC_LABEL)
+    if (file.startsWith('libQnn')) return ` ${t('NPU 运行库')}`
+    return file === 'tokenizer.json' ? t('分词器') : ` ${file}`
   }
 }
 
@@ -103,19 +104,19 @@ export function modelLabel(status: SetupStatus) {
  */
 export function ModelRow({ info, file, running, actions }: { info: ModelInfo; file: ModelFileStatus; running: boolean; actions?: ReactNode }) {
   const state = file.ready
-    ? `${formatSize(file.bytes)} · 已下载`
+    ? `${formatSize(file.bytes)} · ${t('已下载')}`
     : !running && file.partialBytes > 0
-      ? `${formatSize(file.bytes)} · 未下载完`
-      : `${formatSize(file.bytes)} · 未下载`
+      ? `${formatSize(file.bytes)} · ${t('未下载完')}`
+      : `${formatSize(file.bytes)} · ${t('未下载')}`
   return (
     <div className={CARD_ROW}>
       <span className={`${ROW_ICON_TILE} ${ICON_TILE}`}>{info.icon}</span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm text-gray-800 dark:text-gray-100">{info.label}</span>
-        <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">{info.desc}</span>
+        <span className="block text-sm text-gray-800 dark:text-gray-100">{t(info.label)}</span>
+        <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">{t(info.desc)}</span>
         <span className="mt-0.5 flex min-w-0 items-baseline gap-1.5 text-xs max-sm:flex-wrap">
           <ExternalLink href={file.url} className="flex-shrink-0">
-            {info.model}
+            {t(info.model)}
           </ExternalLink>
           <span data-selectable-text className={`min-w-0 text-gray-400 dark:text-gray-500 ${ROW_LONG_TEXT}`}>
             {file.name}
@@ -124,9 +125,9 @@ export function ModelRow({ info, file, running, actions }: { info: ModelInfo; fi
         </span>
         <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
           {state}
-          {file.ready && file.verified === true && <span className="text-green-600 dark:text-green-400"> · 校验通过</span>}
-          {file.ready && file.verified === false && <span className="text-red-500 dark:text-red-400"> · 校验未通过</span>}
-          {file.ready && file.verified === null && ' · 未校验'}
+          {file.ready && file.verified === true && <span className="text-green-600 dark:text-green-400"> · {t('校验通过')}</span>}
+          {file.ready && file.verified === false && <span className="text-red-500 dark:text-red-400"> · {t('校验未通过')}</span>}
+          {file.ready && file.verified === null && ` · ${t('未校验')}`}
         </span>
       </span>
       {actions && <span className={`gap-1.5 ${ROW_ACTIONS}`}>{actions}</span>}
@@ -141,13 +142,15 @@ export function ModelRow({ info, file, running, actions }: { info: ModelInfo; fi
 export function ImportRow({ disabled, picking, onImport, tokenizerUrl, npu }: { disabled: boolean; picking: boolean; onImport: () => void; tokenizerUrl: string | null; npu: boolean }) {
   // 手机上默认折叠成一行，少占屏幕
   const [open, setOpen] = useState(!isAndroid)
+  // 分词器的链接插在句中
+  const tokenizerParts = t('直接下载不顺利时的备选方式：点击上面的模型名称打开下载页，下载列出的 .litertlm 文件，再下载分词器{tokenizer}，一起导入。导入时会自动识别文件，校验通过后即可使用。').split('{tokenizer}')
   if (!open) {
     return (
       <button type="button" className={`${CARD_ROW} ${CARD_ROW_HOVER}`} aria-expanded={false} onClick={() => setOpen(true)}>
         <span className={ICON_TILE}>
           <FileIcon className="h-4 w-4" />
         </span>
-        <span className="min-w-0 flex-1 text-sm text-gray-800 dark:text-gray-100">导入已下载的文件</span>
+        <span className="min-w-0 flex-1 text-sm text-gray-800 dark:text-gray-100">{t('导入已下载的文件')}</span>
         <ChevronRightIcon className="h-4 w-4 flex-shrink-0 text-gray-400 dark:text-gray-500" />
       </button>
     )
@@ -158,27 +161,27 @@ export function ImportRow({ disabled, picking, onImport, tokenizerUrl, npu }: { 
         <FileIcon className="h-4 w-4" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm text-gray-800 dark:text-gray-100">导入已下载的文件</span>
+        <span className="block text-sm text-gray-800 dark:text-gray-100">{t('导入已下载的文件')}</span>
         <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
           {picking
-            ? '正在读取所选文件'
+            ? t('正在读取所选文件')
             : tokenizerUrl
               ? (
                   <>
-                    直接下载不顺利时的备选方式：点击上面的模型名称打开下载页，下载列出的 .litertlm 文件，再下载分词器
+                    {tokenizerParts[0]}
                     <ExternalLink href={tokenizerUrl} className="ml-1">
                       tokenizer.json
                     </ExternalLink>
-                    ，一起导入。导入时会自动识别文件，校验通过后即可使用。
-                    {npu && 'NPU 模型所需的运行库不能导入，导入模型后点“下载”获取，这一项不从 Hugging Face 下载。'}
+                    {tokenizerParts[1]}
+                    {npu && t('NPU 模型所需的运行库不能导入，导入模型后点“下载”获取，这一项不从 Hugging Face 下载。')}
                   </>
                 )
-              : '直接下载不顺利时的备选方式：点击上面的模型名称打开下载页，下载列出的 .gguf 文件后导入。导入时会自动识别是哪个模型，校验通过后即可使用。'}
+              : t('直接下载不顺利时的备选方式：点击上面的模型名称打开下载页，下载列出的 .gguf 文件后导入。导入时会自动识别是哪个模型，校验通过后即可使用。')}
         </span>
       </span>
       <span className={ROW_ACTIONS}>
         <button type="button" className={SMALL_BUTTON} disabled={disabled || picking} onClick={onImport}>
-          导入
+          {t('导入')}
         </button>
       </span>
     </div>
@@ -222,11 +225,11 @@ export function toSource(c: SourceChoice): ModelSource {
 export function SourcePicker({ value, onChange, disabled }: { value: SourceChoice; onChange: (c: SourceChoice) => void; disabled?: boolean }) {
   return (
     <div>
-      <p className="mb-1.5 text-xs text-gray-500 dark:text-gray-400">下载源</p>
+      <p className="mb-1.5 text-xs text-gray-500 dark:text-gray-400">{t('下载源')}</p>
       <div className={SEGMENTS}>
         {SOURCES.map((s) => (
           <button key={s.value} type="button" disabled={disabled} className={segmentClass(value.type === s.value)} onClick={() => onChange({ ...value, type: s.value })}>
-            {s.label}
+            {t(s.label)}
           </button>
         ))}
       </div>
@@ -236,7 +239,7 @@ export function SourcePicker({ value, onChange, disabled }: { value: SourceChoic
           onChange={(e) => onChange({ ...value, url: e.target.value })}
           spellCheck={false}
           placeholder="https://hf-mirror.com"
-          aria-label="下载源地址"
+          aria-label={t('下载源地址')}
           className={`mt-2 ${INPUT}`}
         />
       )}
@@ -250,12 +253,12 @@ export function ProxyStatus({ proxy, onProxy }: { proxy: ProxySetting; onProxy: 
   return (
     <>
       <div className="text-xs text-gray-500 dark:text-gray-400">
-        网络代理：{PROXY_LABEL[proxy.mode]}
-        {proxy.mode === 'custom' && !proxy.url.includes('@') ? `（${proxy.url}）` : ''}
+        {t('网络代理：{mode}', { mode: t(PROXY_LABEL[proxy.mode]) })}
+        {proxy.mode === 'custom' && !proxy.url.includes('@') ? t('（{url}）', { url: proxy.url }) : ''}
         <button type="button" className="ml-2 text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300" onClick={() => setOpen((v) => !v)}>
-          {open ? '收起' : '更改'}
+          {open ? t('收起') : t('更改')}
         </button>
-        <p className="mt-1 text-gray-400 dark:text-gray-500">直连 Hugging Face 较慢或失败时，可以换用魔搭或设置代理</p>
+        <p className="mt-1 text-gray-400 dark:text-gray-500">{t('直连 Hugging Face 较慢或失败时，可以换用魔搭或设置代理')}</p>
       </div>
       {open && <ProxyForm saved={proxy} onSaved={onProxy} />}
     </>
@@ -263,15 +266,15 @@ export function ProxyStatus({ proxy, onProxy }: { proxy: ProxySetting; onProxy: 
 }
 
 /** `label` 把文件名换成给用户看的名称（含前导空格）；不给时显示文件名 */
-function taskText(t: ModelTask, label: (file: string) => string) {
-  const n = t.count > 1 ? `（${t.index}/${t.count}）` : ''
-  const name = label(t.file ?? '')
-  if (t.kind === 'delete') return t.file ? `正在删除${name}` : '正在删除模型'
-  if (t.kind === 'verify') return t.file ? `正在校验${name}${n}` : '正在校验'
-  if (t.phase === 'preparing') return '正在连接下载源'
-  if (t.phase === 'checking') return `正在核对${name}${n}`
-  if (t.phase === 'copying') return `正在导入${name}${n}`
-  return `正在下载${name}${n}`
+function taskText(task: ModelTask, label: (file: string) => string) {
+  const n = task.count > 1 ? t('（{index}/{count}）', { index: task.index, count: task.count }) : ''
+  const name = label(task.file ?? '')
+  if (task.kind === 'delete') return task.file ? t('正在删除{name}', { name }) : t('正在删除模型')
+  if (task.kind === 'verify') return task.file ? t('正在校验{name}{n}', { name, n }) : t('正在校验')
+  if (task.phase === 'preparing') return t('正在连接下载源')
+  if (task.phase === 'checking') return t('正在核对{name}{n}', { name, n })
+  if (task.phase === 'copying') return t('正在导入{name}{n}', { name, n })
+  return t('正在下载{name}{n}', { name, n })
 }
 
 /** 进行中的任务：说明、字节数与速度、进度条（删除没有进度，不显示进度条） */
@@ -281,7 +284,7 @@ export function TaskProgress({ task, label = (f) => ` ${f}`, className = '' }: {
 
 /** 暂停或出错中断的下载（`interrupted`）：已下载的部分，进度条停在那里 */
 export function PausedProgress({ label, file, interrupted, className = '' }: { label: string; file: ModelFileStatus; interrupted: boolean; className?: string }) {
-  return <ProgressBar text={`${interrupted ? '下载中断' : '已暂停'}：${label}`} done={file.partialBytes} total={file.bytes} bar className={className} paused />
+  return <ProgressBar text={interrupted ? t('下载中断：{name}', { name: t(label) }) : t('已暂停：{name}', { name: t(label) })} done={file.partialBytes} total={file.bytes} bar className={className} paused />
 }
 
 function ProgressBar({ text, done, total, speed, bar, paused, className }: { text: string; done: number; total: number; speed?: number | null; bar: boolean; paused?: boolean; className: string }) {
@@ -307,7 +310,7 @@ function ProgressBar({ text, done, total, speed, bar, paused, className }: { tex
 
 /** 进度条右侧暂停或继续下载的图标按钮 */
 export function PauseResumeButton({ paused, disabled, onClick }: { paused: boolean; disabled?: boolean; onClick: () => void }) {
-  const label = paused ? '继续下载' : '暂停下载'
+  const label = paused ? t('继续下载') : t('暂停下载')
   return (
     <button
       type="button"

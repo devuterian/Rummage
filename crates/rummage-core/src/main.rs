@@ -46,6 +46,7 @@ use rummage_core::pipeline::Config;
 use rummage_core::{BindError, Power};
 use rummage_embed::WorkerArgs;
 use rummage_embed::space::{MMPROJ, MODEL, MODEL_DIR};
+use rummage_proto::tr;
 
 /// 开发版或不在安装目录中运行（旁边没有 `llama\`），见模块说明
 fn in_repo(exe: &Path) -> bool {
@@ -102,10 +103,10 @@ fn parse_args(args: impl IntoIterator<Item = OsString>) -> Result<Args, String> 
             continue;
         }
         if arg != "--data-dir" {
-            return Err(format!("无法识别的参数：{}。", arg.to_string_lossy()));
+            return Err(cli::unknown_arg(&arg.to_string_lossy()));
         }
         let Some(path) = args.next() else {
-            return Err("--data-dir 后面缺少路径。".into());
+            return Err(cli::missing_dir());
         };
         parsed.data_dir = Some(PathBuf::from(path));
     }
@@ -192,7 +193,14 @@ async fn run(data_dir: &Path) -> ExitCode {
     let listener = match listener {
         Ok(listener) => listener,
         Err(BindError::AlreadyRunning) => {
-            eprintln!("Rummage 后台服务已在运行。");
+            eprintln!(
+                "{}",
+                tr!(
+                    "Rummage 后台服务已在运行。",
+                    "Rummage 백그라운드 서비스가 이미 실행 중입니다.",
+                    "The Rummage background service is already running."
+                )
+            );
             return ExitCode::from(rummage_core::EXIT_ALREADY_RUNNING);
         }
         Err(err @ BindError::Occupied) => {
@@ -318,11 +326,25 @@ async fn shutdown(data_dir: &Path) -> ExitCode {
     match client::shutdown(client).await {
         Ok(true) => ExitCode::SUCCESS,
         Ok(false) => {
-            eprintln!("Rummage 后台服务 10 秒内没有退出。");
+            eprintln!(
+                "{}",
+                tr!(
+                    "Rummage 后台服务 10 秒内没有退出。",
+                    "Rummage 백그라운드 서비스가 10초 안에 종료되지 않았습니다.",
+                    "The Rummage background service did not exit within 10 seconds."
+                )
+            );
             ExitCode::FAILURE
         }
         Err(err) => {
-            eprintln!("无法让 Rummage 后台服务退出：{err}");
+            eprintln!(
+                "{}",
+                tr!(
+                    "无法让 Rummage 后台服务退出：{err}",
+                    "Rummage 백그라운드 서비스를 종료할 수 없습니다: {err}",
+                    "Could not stop the Rummage background service: {err}"
+                )
+            );
             ExitCode::FAILURE
         }
     }
@@ -352,6 +374,8 @@ fn main() -> ExitCode {
         return dev::run(&cmd, raw);
     }
     let cmd = raw.peek().map(|a| a.to_string_lossy().into_owned());
+    // 命令行、MCP、用法说明与 --shutdown 在自己的进程中，先按环境变量定界面语言；核心模式在下面改回默认，由后台服务按外观设置定
+    cli::lang_from_env();
     match cmd.as_deref() {
         Some(c) if cli::COMMANDS.contains(&c) => {
             let c = c.to_string();
@@ -371,7 +395,7 @@ fn main() -> ExitCode {
             return match tokio::runtime::Runtime::new() {
                 Ok(runtime) => runtime.block_on(cli::run(args)).into(),
                 Err(err) => {
-                    eprintln!("无法启动异步运行时：{err}");
+                    eprintln!("{}", cli::no_runtime(&err));
                     cli::Outcome::Failed.into()
                 }
             };
@@ -415,7 +439,14 @@ fn main() -> ExitCode {
         (None, true) => match rummage_datadir::current() {
             Ok(dir) => dir,
             Err(err) => {
-                eprintln!("无法确定数据目录：{err}");
+                eprintln!(
+                    "{}",
+                    tr!(
+                        "无法确定数据目录：{err}",
+                        "데이터 폴더를 확인할 수 없습니다: {err}",
+                        "Could not determine the data folder: {err}"
+                    )
+                );
                 return ExitCode::FAILURE;
             }
         },
@@ -428,7 +459,7 @@ fn main() -> ExitCode {
     let runtime = match tokio::runtime::Runtime::new() {
         Ok(runtime) => runtime,
         Err(err) => {
-            eprintln!("无法启动异步运行时：{err}");
+            eprintln!("{}", cli::no_runtime(&err));
             return ExitCode::FAILURE;
         }
     };
@@ -436,6 +467,7 @@ fn main() -> ExitCode {
     if args.shutdown {
         return runtime.block_on(shutdown(&data_dir));
     }
+    rummage_proto::i18n::set_lang(rummage_proto::i18n::Lang::default());
     // 句柄要保留到退出，丢弃时日志停止写入
     let _log = init_log(&data_dir);
     runtime.block_on(run(&data_dir))

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import type { ParamValue, ParamValues, RootInfo, SetupStatus } from '../../types'
 import { errorMessage } from '../../lib/errors'
+import { t } from '../../lib/i18n'
 import { KIND_PARAMS, type Kinds, kindsOf, needsMmproj } from '../../lib/kinds'
 import { saveParam } from '../../lib/params'
 import { isAndroid } from '../../lib/platform'
@@ -33,7 +34,7 @@ function Excludes({ root, onClose, onSaved }: { root: RootInfo; onClose: () => v
       })
       .catch((err) => {
         console.warn('无法保存排除规则：', err)
-        setError(errorMessage(err, '排除规则未能保存，请重试。'))
+        setError(errorMessage(err, t('排除规则未能保存，请重试。')))
       })
       .finally(() => setSaving(false))
   }
@@ -55,16 +56,16 @@ function Excludes({ root, onClose, onSaved }: { root: RootInfo; onClose: () => v
         // 手机宽度下占位提示的第一行会折成两行
         rows={isAndroid ? 5 : 4}
         spellCheck={false}
-        placeholder={EXCLUDE_PLACEHOLDER}
-        aria-label="排除规则"
+        placeholder={t(EXCLUDE_PLACEHOLDER)}
+        aria-label={t('排除规则')}
         className="w-full resize-y rounded-xl border border-transparent bg-white px-3 py-2 font-mono text-xs text-gray-700 shadow-sm outline-none transition placeholder:text-gray-400 focus:border-blue-300 dark:bg-white/[0.06] dark:text-gray-200 dark:shadow-none dark:focus:border-blue-500/50"
       />
       {/* `.nomedia` 是 Android 的约定 */}
       {isAndroid && (
         <div className="flex items-center gap-1.5">
           {/* 说明图标放在勾选框的 label 外，点它不切换 */}
-          <Checkbox checked={skipNomedia} onChange={setSkipNomedia} label="跳过含 .nomedia 的文件夹" />
-          <Tip label="应用不希望在相册中显示的文件，如缩略图、缓存" className="text-gray-400 dark:text-gray-500">
+          <Checkbox checked={skipNomedia} onChange={setSkipNomedia} label={t('跳过含 .nomedia 的文件夹')} />
+          <Tip label={t('应用不希望在相册中显示的文件，如缩略图、缓存')} className="text-gray-400 dark:text-gray-500">
             <InfoIcon className="h-4 w-4" />
           </Tip>
         </div>
@@ -72,10 +73,10 @@ function Excludes({ root, onClose, onSaved }: { root: RootInfo; onClose: () => v
       {error && <p data-selectable-text className={ERROR_TEXT}>{error}</p>}
       <div className="flex justify-end gap-2">
         <button type="button" onClick={onClose} className={SMALL_BUTTON}>
-          取消
+          {t('取消')}
         </button>
         <button type="button" disabled={saving} onClick={save} className={SMALL_PRIMARY_BUTTON}>
-          保存
+          {t('保存')}
         </button>
       </div>
     </div>
@@ -107,7 +108,7 @@ export default function FoldersTab({ values, setParam, setup, onModels }: Props)
       <FoldersStep
         section
         editor={{
-          label: (r) => (r.excludes.length ? `排除 ${r.excludes.length} 条` : '排除规则'),
+          label: (r) => (r.excludes.length ? t('排除 {n} 条', { n: r.excludes.length }) : t('排除规则')),
           panel: (r, close, reload) => <Excludes root={r} onClose={close} onSaved={reload} />,
         }}
       />
@@ -117,9 +118,9 @@ export default function FoldersTab({ values, setParam, setup, onModels }: Props)
         {!isAndroid && needsMmproj(kinds) && setup && !setup.mmproj.ready && (
           <div className={`mt-4 ${NOTICE_BOX}`}>
             <WarningIcon className="mt-px h-4 w-4 flex-shrink-0" />
-            <span className="flex-1">尚未下载图片与音视频模型，图片、音频和视频目前只能按文件名搜索。下载或导入后会自动识别它们的内容。</span>
+            <span className="flex-1">{t('尚未下载图片与音视频模型，图片、音频和视频目前只能按文件名搜索。下载或导入后会自动识别它们的内容。')}</span>
             <button type="button" className="flex-shrink-0 font-medium hover:underline" onClick={onModels}>
-              前往下载
+              {t('前往下载')}
             </button>
           </div>
         )}

@@ -4,11 +4,9 @@
 //! 自定义代理时本机地址（`localhost`、`127.0.0.1`、`::1`）仍然直连，代理服务器通常访问不到本机上的服务。
 use reqwest::{ClientBuilder, NoProxy, Url};
 use rummage_index::{Db, DbError};
-use rummage_proto::{ProxyMode, ProxySetting};
+use rummage_proto::{ProxyMode, ProxySetting, tr, trs};
 
 const META_KEY: &str = "proxy";
-const SOCKS: &str = "暂不支持 SOCKS 代理，请使用代理软件提供的 HTTP 端口。";
-const EXAMPLE: &str = "例如 http://127.0.0.1:7890";
 const LOOPBACK: &str = "localhost,127.0.0.1,::1";
 
 /// 当前生效的连接方式
@@ -91,31 +89,58 @@ pub enum SaveError {
 /// 只接受 HTTP 代理，可以省略 http://；必须带主机和端口，可以带用户名和密码，不能带路径
 pub fn parse(input: &str) -> Result<(String, Url), String> {
     let text = input.trim().trim_end_matches('/');
+    let example = trs!(
+        "例如 http://127.0.0.1:7890",
+        "예: http://127.0.0.1:7890",
+        "e.g. http://127.0.0.1:7890"
+    );
     if text.is_empty() {
-        return Err("请填写代理地址。".into());
+        return Err(tr!(
+            "请填写代理地址。",
+            "프록시 주소를 입력하십시오.",
+            "Enter a proxy address."
+        ));
     }
     let text = match text.split_once("://") {
         None => format!("http://{text}"),
         Some((scheme, _)) if scheme.eq_ignore_ascii_case("http") => text.to_string(),
         Some((scheme, _)) if scheme.to_ascii_lowercase().starts_with("socks") => {
-            return Err(SOCKS.into());
+            return Err(tr!(
+                "暂不支持 SOCKS 代理，请使用代理软件提供的 HTTP 端口。",
+                "SOCKS 프록시는 아직 지원하지 않습니다. 프록시 프로그램이 제공하는 HTTP 포트를 사용하십시오.",
+                "SOCKS proxies aren't supported yet. Use the HTTP port provided by your proxy software."
+            ));
         }
         Some(_) => {
-            return Err(format!(
-                "只支持 HTTP 代理，地址需以 http:// 开头，{EXAMPLE}。"
+            return Err(tr!(
+                "只支持 HTTP 代理，地址需以 http:// 开头，{example}。",
+                "HTTP 프록시만 지원합니다. 주소는 http://로 시작해야 합니다({example}).",
+                "Only HTTP proxies are supported. The address must start with http:// ({example})."
             ));
         }
     };
     let url = Url::parse(&text).map_err(|_| {
         let hint = if text.contains('@') {
-            "。用户名或密码含特殊字符时请使用百分号编码"
+            trs!(
+                "。用户名或密码含特殊字符时请使用百分号编码",
+                " 사용자 이름이나 비밀번호에 특수 문자가 있으면 퍼센트 인코딩을 사용하십시오.",
+                " If the username or password contains special characters, use percent-encoding."
+            )
         } else {
             ""
         };
-        format!("代理地址格式不正确，{EXAMPLE}{hint}。")
+        tr!(
+            "代理地址格式不正确，{example}{hint}。",
+            "프록시 주소 형식이 올바르지 않습니다({example}).{hint}",
+            "The proxy address is invalid ({example}).{hint}"
+        )
     })?;
     if url.path() != "/" || url.query().is_some() || url.fragment().is_some() {
-        return Err(format!("代理地址只需填写主机和端口，{EXAMPLE}。"));
+        return Err(tr!(
+            "代理地址只需填写主机和端口，{example}。",
+            "프록시 주소에는 호스트와 포트만 입력하십시오({example}).",
+            "Enter only the host and port for the proxy address ({example})."
+        ));
     }
     // Url 会省略默认端口 80，从原文判断是否写了端口；IPv6 地址形如 [::1]:7890
     let authority = text["http://".len()..]
@@ -130,7 +155,11 @@ pub fn parse(input: &str) -> Result<(String, Url), String> {
         .is_some_and(|(_, port)| !port.is_empty() && port.bytes().all(|b| b.is_ascii_digit()))
         && url.port() != Some(0);
     if !has_port {
-        return Err(format!("代理地址需包含端口，{EXAMPLE}。"));
+        return Err(tr!(
+            "代理地址需包含端口，{example}。",
+            "프록시 주소에 포트를 넣어야 합니다({example}).",
+            "The proxy address must include a port ({example})."
+        ));
     }
     Ok((text, url))
 }
@@ -157,8 +186,14 @@ mod tests {
     fn rejects_invalid_proxy() {
         let err = |input: &str| parse(input).unwrap_err();
         assert_eq!(err(" "), "请填写代理地址。");
-        assert_eq!(err("socks5://127.0.0.1:7891"), SOCKS);
-        assert_eq!(err("SOCKS5H://127.0.0.1:7891"), SOCKS);
+        assert_eq!(
+            err("socks5://127.0.0.1:7891"),
+            "暂不支持 SOCKS 代理，请使用代理软件提供的 HTTP 端口。"
+        );
+        assert_eq!(
+            err("SOCKS5H://127.0.0.1:7891"),
+            "暂不支持 SOCKS 代理，请使用代理软件提供的 HTTP 端口。"
+        );
         assert!(err("https://127.0.0.1:7890").contains("只支持 HTTP 代理"));
         assert!(err("127.0.0.1").contains("端口"));
         assert!(err("http://127.0.0.1:").contains("端口"));

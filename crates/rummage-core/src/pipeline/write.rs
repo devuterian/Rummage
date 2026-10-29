@@ -107,7 +107,7 @@ fn retry_each(shared: &Shared, batch: &[(Claimed, Outcome)]) -> bool {
                 .iter()
                 .find_map(|(_, o)| o.quick_hash())
                 .map(<[u8]>::to_vec),
-            error: super::prep::reason::DB_REASON.into(),
+            error: super::prep::reason::db_reason().into(),
         };
         match apply(shared, &db, &[(job.clone(), failed)]) {
             Ok(r) => requeued |= r,

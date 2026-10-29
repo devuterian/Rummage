@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { invoke } from '@tauri-apps/api/core'
 import type { SearchHit, SegmentPreview } from '../types'
 import { formatClock, highlight, locatorText } from '../lib/format'
+import { t } from '../lib/i18n'
 import { canPlay, cropUrl, embedOf, frameUrl, hitFrameMs, hitRegion, imageUrl, playUrl, thumbUrl, timeRange } from '../lib/media'
 import { isTauri } from '../lib/platform'
 import { HoverTip } from './Tip'
@@ -43,7 +44,7 @@ function EmbedSegment({ hit, segmentId, locatorJson }: { hit: SearchHit; segment
     <div className="flex flex-col gap-1">
       <p className="text-xs text-blue-500/80 dark:text-blue-400/80">{locatorText(locatorJson)}</p>
       {embed?.kind !== 'audio' && (failed ? (
-        <Note>无法显示这个画面，可以用系统程序打开文档</Note>
+        <Note>{t('无法显示这个画面，可以用系统程序打开文档')}</Note>
       ) : (
         <img src={cropUrl(hit, segmentId)} alt={hit.name} onError={() => setFailed(true)} className="mx-auto max-h-[45vh] rounded-xl object-contain" />
       ))}
@@ -90,7 +91,7 @@ function Segment({ segmentId, query }: { segmentId: number; query: string }) {
         data-selectable-text
         className="relative max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-black/[0.03] p-3 font-mono text-xs leading-relaxed text-gray-700 [scrollbar-gutter:stable] dark:bg-white/[0.04] dark:text-gray-200"
       >
-        {state === 'failed' ? '内容读取失败' : state === 'missing' ? '这段内容已不在索引中' : !seg ? '加载中' : (
+        {state === 'failed' ? t('内容读取失败') : state === 'missing' ? t('这段内容已不在索引中') : !seg ? t('加载中') : (
           <>
             {seg.before && <span className={context}><Marked text={seg.before} query={query} />{'\n\n'}</span>}
             <span ref={hitRef}><Marked text={seg.text ?? ''} query={query} /></span>
@@ -130,7 +131,7 @@ function ImagePreview({ hit, onOpen }: { hit: SearchHit; onOpen: () => void }) {
     return () => ro.disconnect()
   }, [])
 
-  if (thumbFailed && original === 'failed') return <Note>无法显示这张图片，可以用系统程序打开</Note>
+  if (thumbFailed && original === 'failed') return <Note>{t('无法显示这张图片，可以用系统程序打开')}</Note>
   const w = hit.width ?? 0
   const h = hit.height ?? 0
   const scale = w && h && boxWidth ? Math.min(1, boxWidth / w, (window.innerHeight * 0.45) / h) : 0
@@ -190,7 +191,7 @@ function LongImagePreview({ hit, region, onOpen }: { hit: SearchHit; region: Non
   }
 
   if (originalFailed) {
-    if (cropFailed) return <Note>无法显示这张图片，可以用系统程序打开</Note>
+    if (cropFailed) return <Note>{t('无法显示这张图片，可以用系统程序打开')}</Note>
     return (
       <div className="flex h-[var(--long-image-max)] flex-shrink-0 items-center justify-center">
         <img src={cropUrl(hit, region.segmentId)} alt={hit.name} onClick={onOpen} onError={() => setCropFailed(true)} className="max-h-full max-w-full cursor-pointer rounded-xl object-contain" />
@@ -266,7 +267,7 @@ function MediaPreview({ hit }: { hit: SearchHit }) {
       {!video && playing && <audio {...media} className="w-full" />}
       {ranges.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <p className="text-xs text-gray-500 dark:text-gray-400">命中的时间段</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('命中的时间段')}</p>
           <ul className="flex flex-wrap gap-2">
             {ranges.map((r) => {
               const text = `${formatClock(r.start)}–${formatClock(r.end)}`
@@ -276,7 +277,7 @@ function MediaPreview({ hit }: { hit: SearchHit }) {
                   {playing ? (
                     <button type="button" onClick={() => seek(r.start)} className={`${cls} transition duration-200 hover:bg-black/[0.08] dark:hover:bg-white/[0.1]`}>
                       {text}
-                      <HoverTip label="从这里播放" />
+                      <HoverTip label={t('从这里播放')} />
                     </button>
                   ) : (
                     <span className={`inline-block ${cls}`}>{text}</span>
@@ -294,16 +295,16 @@ function MediaPreview({ hit }: { hit: SearchHit }) {
 /** 详情栏顶部的预览；`query` 为文字查询，文档预览中高亮其中的词；点击图片时调用 `onOpen` 打开文件 */
 export default function Preview({ hit, query, onOpen }: { hit: SearchHit; query: string; onOpen: () => void }) {
   // 占位文件与离线设备上的文件不预览
-  if (hit.missing) return <Note>找不到文件所在的文件夹，无法预览</Note>
-  if (hit.offline) return <Note>文件所在的设备未连接，无法预览</Note>
-  if (hit.cloud) return <Note>文件仅在云端，打开时由系统下载，这里不预览</Note>
+  if (hit.missing) return <Note>{t('找不到文件所在的文件夹，无法预览')}</Note>
+  if (hit.offline) return <Note>{t('文件所在的设备未连接，无法预览')}</Note>
+  if (hit.cloud) return <Note>{t('文件仅在云端，打开时由系统下载，这里不预览')}</Note>
   if (hit.kind === 'image') {
     const region = hitRegion(hit)
     return region ? <LongImagePreview hit={hit} region={region} onOpen={onOpen} /> : <ImagePreview hit={hit} onOpen={onOpen} />
   }
   if (hit.kind === 'audio' || hit.kind === 'video') return <MediaPreview hit={hit} />
   const ids = previewSegments(hit)
-  if (!ids.length) return <Note>这个结果来自文件名匹配，没有可预览的内容</Note>
+  if (!ids.length) return <Note>{t('这个结果来自文件名匹配，没有可预览的内容')}</Note>
   // 内嵌媒体的片段没有正文，直接显示它的画面
   const embedded = new Map(hit.segments.filter((s) => embedOf(s.locatorJson)).map((s) => [s.segmentId, s.locatorJson]))
   return (

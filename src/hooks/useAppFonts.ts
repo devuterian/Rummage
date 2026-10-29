@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import type { Appearance } from '../types'
 import { applyAppearance, loadCachedAppearance, saveCachedAppearance } from '../lib/fonts'
 import { getLang } from '../lib/i18n'
-import { isTauri } from '../lib/platform'
+import { isAndroid, isTauri } from '../lib/platform'
 
 /**
  * 外观（字体与界面语言）：先用本地缓存，首次绘制前就应用；核心连上后取 `get_appearance`，以核心为准并更新缓存。
@@ -15,6 +15,12 @@ export function useAppFonts(connected: boolean) {
 
   // 用 layout effect 在首次绘制前应用字体，避免先用默认字体再切换
   useLayoutEffect(() => applyAppearance(appearance), [appearance])
+
+  // Android 上把当前界面语言交给插件，通知等 Kotlin 侧文字随之切换；改语言会重新加载页面，挂载时发一次即可
+  useEffect(() => {
+    if (!isTauri || !isAndroid) return
+    invoke('plugin:rummage-android|set_language', { lang: getLang() }).catch((err) => console.warn('无法设置 Android 通知语言：', err))
+  }, [])
 
   useEffect(() => {
     if (!isTauri || !connected) return

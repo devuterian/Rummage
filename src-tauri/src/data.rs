@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use rummage_datadir::{Notice, NoticeKind};
-use rummage_proto::{ApiError, Reply, Request};
+use rummage_proto::{ApiError, Reply, Request, trs};
 use serde::Serialize;
 use tauri::{AppHandle, Manager, Runtime, State};
 
@@ -45,7 +45,11 @@ impl DataDir {
         self.dir.as_deref().ok_or_else(|| {
             error(
                 ApiError::UNAVAILABLE,
-                "数据目录不可用，请重新启动 Rummage。",
+                trs!(
+                    "数据目录不可用，请重新启动 Rummage。",
+                    "데이터 폴더를 사용할 수 없습니다. Rummage를 다시 시작하십시오.",
+                    "The data folder is unavailable. Restart Rummage."
+                ),
             )
         })
     }
@@ -107,7 +111,14 @@ fn is_db_backup(name: &str) -> bool {
 
 fn blocking_error(err: impl std::fmt::Display) -> ApiError {
     log::error!("操作异常结束：{err}");
-    error(ApiError::INTERNAL, "操作未能完成，请重试。")
+    error(
+        ApiError::INTERNAL,
+        trs!(
+            "操作未能完成，请重试。",
+            "작업을 완료하지 못했습니다. 다시 시도하십시오.",
+            "The operation couldn't be completed. Try again."
+        ),
+    )
 }
 
 #[tauri::command]
@@ -152,7 +163,14 @@ pub async fn open_data_dir(data: State<'_, DataDir>) -> Result<(), ApiError> {
         .map_err(blocking_error)?
         .map_err(|err| {
             log::warn!("无法打开数据目录：{err}");
-            error(ApiError::INTERNAL, "无法打开数据目录，请稍后再试。")
+            error(
+                ApiError::INTERNAL,
+                trs!(
+                    "无法打开数据目录，请稍后再试。",
+                    "데이터 폴더를 열 수 없습니다. 잠시 후 다시 시도하십시오.",
+                    "Couldn't open the data folder. Try again later."
+                ),
+            )
         })
 }
 
@@ -176,7 +194,14 @@ pub async fn data_dir_pick<R: Runtime>(
     let from = app.state::<DataDir>().dir()?.to_path_buf();
     app.state::<DataDir>().picked.lock().expect(LOCK).take();
     let (tx, rx) = tokio::sync::oneshot::channel();
-    let mut dialog = crate::file_dialog(&app, "选择新的数据目录");
+    let mut dialog = crate::file_dialog(
+        &app,
+        trs!(
+            "选择新的数据目录",
+            "새 데이터 폴더 선택",
+            "Choose a new data folder"
+        ),
+    );
     if let Some(parent) = from.parent() {
         dialog = dialog.set_directory(parent);
     }
@@ -190,7 +215,11 @@ pub async fn data_dir_pick<R: Runtime>(
         log::warn!("无法读取所选文件夹的路径：{err}");
         error(
             ApiError::BAD_REQUEST,
-            "无法读取所选文件夹的路径，请重新选择。",
+            trs!(
+                "无法读取所选文件夹的路径，请重新选择。",
+                "선택한 폴더의 경로를 읽을 수 없습니다. 다시 선택하십시오.",
+                "Couldn't read the selected folder's path. Choose it again."
+            ),
         )
     })?;
     let indexed = indexed(&app).await;
@@ -229,7 +258,11 @@ pub async fn data_dir_change<R: Runtime>(app: AppHandle<R>) -> Result<(), ApiErr
         .ok_or_else(|| {
             error(
                 ApiError::BAD_REQUEST,
-                "没有待确认的新数据目录，请重新选择。",
+                trs!(
+                    "没有待确认的新数据目录，请重新选择。",
+                    "확인할 새 데이터 폴더가 없습니다. 다시 선택하십시오.",
+                    "There is no new data folder to confirm. Choose one again."
+                ),
             )
         })?;
     let indexed = indexed(&app).await;
@@ -278,7 +311,11 @@ pub async fn reset_index<R: Runtime>(app: AppHandle<R>) -> Result<(), ApiError> 
     if status.error.is_none() || !status.rebuildable {
         return Err(error(
             ApiError::BAD_REQUEST,
-            "索引数据库的问题无法通过清除解决，没有删除任何数据。",
+            trs!(
+                "索引数据库的问题无法通过清除解决，没有删除任何数据。",
+                "색인 데이터베이스 문제는 지워서 해결할 수 없어 아무 데이터도 삭제하지 않았습니다.",
+                "Clearing won't fix this index database problem, so no data was deleted."
+            ),
         ));
     }
     let dir = app.state::<DataDir>().dir()?.to_path_buf();
@@ -296,7 +333,7 @@ pub async fn reset_index<R: Runtime>(app: AppHandle<R>) -> Result<(), ApiError> 
         log::error!("无法删除索引数据库：{err}");
         error(
             ApiError::UNAVAILABLE,
-            "无法删除索引数据库，它可能被其他程序占用，请关闭相关程序后重试。",
+            trs!("无法删除索引数据库，它可能被其他程序占用，请关闭相关程序后重试。", "색인 데이터베이스를 삭제할 수 없습니다. 다른 프로그램이 사용 중일 수 있으니 해당 프로그램을 닫고 다시 시도하십시오.", "Couldn't delete the index database. Another program may be using it. Close that program and try again."),
         )
     })?;
     log::warn!("用户清除了无法打开的索引数据库，重启核心进程后重建。");

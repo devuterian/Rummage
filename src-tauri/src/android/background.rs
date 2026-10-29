@@ -32,8 +32,16 @@ use {
 /// 暂停期间保持服务运行的原因在通知中的文字，与界面的索引提示（`src/components/IndexHint.tsx`）一致；其他原因为空
 pub fn note(p: PauseReason) -> Option<&'static str> {
     match p {
-        PauseReason::ScreenOn => Some("屏幕亮着，已暂停"),
-        PauseReason::Hot => Some("手机温度过高，已暂停"),
+        PauseReason::ScreenOn => Some(rummage_proto::trs!(
+            "屏幕亮着，已暂停",
+            "화면이 켜져 있어 일시정지됨",
+            "Paused: screen is on"
+        )),
+        PauseReason::Hot => Some(rummage_proto::trs!(
+            "手机温度过高，已暂停",
+            "휴대폰 온도가 높아 일시정지됨",
+            "Paused: phone is too hot"
+        )),
         _ => None,
     }
 }
@@ -227,7 +235,14 @@ pub async fn battery_unrestricted<R: Runtime>(app: AppHandle<R>) -> Result<bool,
         .await
         .map_err(|err| {
             log::warn!("无法读取电池优化设置：{err}");
-            crate::search::error(ApiError::INTERNAL, "无法读取电池优化设置，请重试。")
+            crate::search::error(
+                ApiError::INTERNAL,
+                rummage_proto::trs!(
+                    "无法读取电池优化设置，请重试。",
+                    "배터리 최적화 설정을 읽을 수 없습니다. 다시 시도하십시오.",
+                    "Couldn't read the battery optimization setting. Try again."
+                ),
+            )
         })
 }
 
@@ -242,7 +257,7 @@ pub async fn request_battery_unrestricted<R: Runtime>(app: AppHandle<R>) -> Resu
             log::warn!("无法打开电池优化设置：{err}");
             crate::search::error(
                 ApiError::INTERNAL,
-                "无法打开电池优化设置，请在系统设置中允许 Rummage 不受电池优化限制。",
+                rummage_proto::trs!("无法打开电池优化设置，请在系统设置中允许 Rummage 不受电池优化限制。", "배터리 최적화 설정을 열 수 없습니다. 시스템 설정에서 Rummage를 배터리 최적화 대상에서 제외하십시오.", "Couldn't open the battery optimization setting. In system settings, exempt Rummage from battery optimization."),
             )
         })
 }
@@ -258,7 +273,11 @@ pub async fn open_app_settings<R: Runtime>(app: AppHandle<R>) -> Result<(), ApiE
             log::warn!("无法打开应用信息：{err}");
             crate::search::error(
                 ApiError::INTERNAL,
-                "无法打开应用信息，请在系统设置的应用列表中找到 Rummage。",
+                rummage_proto::trs!(
+                    "无法打开应用信息，请在系统设置的应用列表中找到 Rummage。",
+                    "앱 정보를 열 수 없습니다. 시스템 설정의 앱 목록에서 Rummage를 찾으십시오.",
+                    "Couldn't open app info. Find Rummage in the app list in system settings."
+                ),
             )
         })
 }

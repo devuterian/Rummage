@@ -101,7 +101,12 @@ impl Rng {
 pub enum CalibError {
     #[error(transparent)]
     Db(#[from] DbError),
-    #[error("计算通用查询的向量失败：{0}")]
+    #[error("{}", rummage_proto::tr!(
+        "计算通用查询的向量失败：{}",
+        "일반 검색어의 벡터를 계산하지 못했습니다: {}",
+        "Couldn't compute vectors for the generic queries: {}",
+        .0
+    ))]
     Embed(String),
 }
 

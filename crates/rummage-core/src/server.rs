@@ -30,7 +30,7 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock, mpsc as std_mpsc};
 use rummage_index::{Cancel, Db, DbError, Root, RootError, VIndex, normalize_root};
 use rummage_proto::{
     ApiError, ClientMsg, CoreMsg, Event, Hello, PROTOCOL_VERSION, ParamValue, Reply, Request,
-    RootInfo, Welcome, decode, encode, params,
+    RootInfo, Welcome, decode, encode, params, tr,
 };
 use tokio::io::{AsyncRead, AsyncWrite, BufReader};
 use tokio::sync::broadcast::error::RecvError;
@@ -315,7 +315,14 @@ where
         return Ok(());
     };
     let reply = match decode::<Hello>(&line) {
-        Err(_) => Err(api_error(ApiError::BAD_REQUEST, "握手消息格式不正确。")),
+        Err(_) => Err(api_error(
+            ApiError::BAD_REQUEST,
+            tr!(
+                "握手消息格式不正确。",
+                "연결 요청 형식이 올바르지 않습니다.",
+                "The handshake message is malformed."
+            ),
+        )),
         Ok(hello) if hello.protocol != PROTOCOL_VERSION => {
             Err(api_error(ApiError::PROTOCOL_MISMATCH, {
                 log::warn!(
@@ -323,12 +330,20 @@ where
                     hello.protocol,
                     PROTOCOL_VERSION
                 );
-                "Rummage 的组件版本不一致，请重新安装 Rummage。"
+                tr!(
+                    "Rummage 的组件版本不一致，请重新安装 Rummage。",
+                    "Rummage 구성 요소의 버전이 서로 다릅니다. Rummage를 다시 설치하십시오.",
+                    "Rummage components have mismatched versions. Reinstall Rummage."
+                )
             }))
         }
         Ok(hello) if !token_eq(&hello.token, &state.token) => Err(api_error(
             ApiError::UNAUTHORIZED,
-            "连接令牌不正确，请重新启动 Rummage。",
+            tr!(
+                "连接令牌不正确，请重新启动 Rummage。",
+                "연결 토큰이 올바르지 않습니다. Rummage를 다시 시작하십시오.",
+                "The connection token is incorrect. Restart Rummage."
+            ),
         )),
         Ok(_) => Ok(Welcome {
             protocol: PROTOCOL_VERSION,
@@ -452,7 +467,11 @@ where
                     id,
                     Err(api_error(
                         ApiError::BAD_REQUEST,
-                        format!("无法识别的请求：{err}"),
+                        tr!(
+                            "无法识别的请求：{err}",
+                            "알 수 없는 요청입니다: {err}",
+                            "Unrecognized request: {err}"
+                        ),
                     )),
                 ),
                 None => break Err(io::Error::new(ErrorKind::InvalidData, err)),
@@ -494,7 +513,11 @@ async fn process(
         log::error!("处理请求时出错：{err}");
         Err(api_error(
             ApiError::INTERNAL,
-            "后台服务处理时出错，请重试。",
+            tr!(
+                "后台服务处理时出错，请重试。",
+                "백그라운드 서비스에서 요청을 처리하는 중 오류가 발생했습니다. 다시 시도하십시오.",
+                "The background service hit an error while handling the request. Try again."
+            ),
         ))
     })
 }
@@ -543,7 +566,11 @@ fn respond(body: Request, state: &Arc<State>) -> Result<Reply, ApiError> {
                 log::error!("无法保存参数 {key}：{err}");
                 api_error(
                     ApiError::UNAVAILABLE,
-                    "设置未能保存：索引数据库写入失败，请检查磁盘空间后重试。",
+                    tr!(
+                        "设置未能保存：索引数据库写入失败，请检查磁盘空间后重试。",
+                        "설정을 저장하지 못했습니다. 색인 데이터베이스에 쓰지 못했으니 디스크 공간을 확인한 뒤 다시 시도하십시오.",
+                        "Couldn't save the setting: writing to the index database failed. Check the disk space, then try again."
+                    ),
                 )
             })?;
             let mut values = lock(&state.params);
@@ -645,8 +672,11 @@ fn respond(body: Request, state: &Arc<State>) -> Result<Reply, ApiError> {
                 Err(err) => {
                     log::error!("参数已保存，但无法安排重建索引：{err}");
                     Ok(Reply::DoneWithWarning {
-                        message: "设置已保存，但未能安排重建索引，已建好的文件仍按旧设置。重新启动 Rummage 后会再试。"
-                            .into(),
+                        message: tr!(
+                            "设置已保存，但未能安排重建索引，已建好的文件仍按旧设置。重新启动 Rummage 后会再试。",
+                            "설정은 저장했지만 색인 다시 만들기를 예약하지 못했습니다. 이미 색인된 파일은 이전 설정을 따릅니다. Rummage를 다시 시작하면 다시 시도합니다.",
+                            "The setting was saved, but rebuilding the index couldn't be scheduled. Files already indexed keep the old setting. Rummage will try again after a restart."
+                        ),
                     })
                 }
             }
@@ -725,7 +755,11 @@ fn respond(body: Request, state: &Arc<State>) -> Result<Reply, ApiError> {
             let Some(p) = state.pipeline.get() else {
                 return Err(api_error(
                     ApiError::UNAVAILABLE,
-                    "索引尚未启动，请稍后再试。",
+                    tr!(
+                        "索引尚未启动，请稍后再试。",
+                        "색인이 아직 시작되지 않았습니다. 잠시 후 다시 시도하십시오.",
+                        "Indexing hasn't started yet. Try again later."
+                    ),
                 ));
             };
             p.status()

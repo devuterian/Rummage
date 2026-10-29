@@ -10,7 +10,7 @@ use rummage_embed::selftest::{self, Candidate, CandidateReport, SelftestReport, 
 use rummage_embed::{Backend, Limits};
 use rummage_proto::{
     AUTO_DEVICE, ApiError, BlockedGpu, CPU_DEVICE, DeviceResult, DeviceStatus, Event, GpuState,
-    ModelTaskKind, ModelTaskState, Reply, SelftestStatus,
+    ModelTaskKind, ModelTaskState, Reply, SelftestStatus, tr, trs,
 };
 
 use super::super::{State, api_error, db, lock};
@@ -38,22 +38,35 @@ fn preferred_error(
     images: bool,
 ) -> Option<String> {
     if let Some(b) = st.blocked.iter().find(|b| b.id == st.preferred) {
-        return Some(format!("所选的显卡「{}」已屏蔽，已改为自动选择。", b.name));
+        return Some(tr!(
+            "所选的显卡「{}」已屏蔽，已改为自动选择。",
+            "선택한 그래픽 카드 ‘{}’이(가) 차단되어 자동 선택으로 바꿨습니다.",
+            "The selected GPU ‘{}’ is blocked, so the device is now chosen automatically.",
+            b.name
+        ));
     }
     let Some(d) = st.devices.iter().find(|d| d.id == st.preferred) else {
-        return Some("所选的显卡在最近一次检测中没有找到，已改为自动选择。".to_string());
+        return Some(tr!(
+            "所选的显卡在最近一次检测中没有找到，已改为自动选择。",
+            "선택한 그래픽 카드를 최근 감지에서 찾지 못해 자동 선택으로 바꿨습니다.",
+            "The selected GPU wasn't found in the latest detection, so the device is now chosen automatically."
+        ));
     };
     if selftest::cached_gpu(cache, gpus, images, Some(&st.preferred), &[]).is_some() {
         return None;
     }
     Some(if d.status == DeviceStatus::Passed {
-        format!(
+        tr!(
             "所选的显卡「{}」目前不能使用，可能已拔出或出现过错误，已改为自动选择。",
+            "선택한 그래픽 카드 ‘{}’을(를) 지금 쓸 수 없어 자동 선택으로 바꿨습니다. 분리되었거나 오류가 있었을 수 있습니다.",
+            "The selected GPU ‘{}’ can't be used right now (it may have been removed or hit an error), so the device is now chosen automatically.",
             d.name
         )
     } else {
-        format!(
+        tr!(
             "所选的显卡「{}」没有通过最近一次检测，已改为自动选择。",
+            "선택한 그래픽 카드 ‘{}’이(가) 최근 감지를 통과하지 못해 자동 선택으로 바꿨습니다.",
+            "The selected GPU ‘{}’ didn't pass the latest detection, so the device is now chosen automatically.",
             d.name
         )
     })
@@ -240,7 +253,11 @@ pub(super) fn devices(report: &SelftestReport) -> (Vec<DeviceResult>, Option<usi
 /// 用户选择设备（`auto`、`cpu` 或显卡的标识）
 pub(super) fn set_preferred_device(state: &Arc<State>, device: String) -> Result<Reply, ApiError> {
     if lock(&state.setup.selftest).running {
-        return Err(bad_request("设备检测正在进行，请等它完成。"));
+        return Err(bad_request(tr!(
+            "设备检测正在进行，请等它完成。",
+            "기기 감지가 진행 중입니다. 끝날 때까지 기다리십시오.",
+            "Device detection is in progress. Wait for it to finish."
+        )));
     }
     let old = state.preferred_device();
     if device == old {
@@ -267,9 +284,11 @@ pub(super) fn set_preferred_device(state: &Arc<State>, device: String) -> Result
             .map(|r| r.device_id())
     };
     if device == CPU_DEVICE && !config(state)?.cpu_model_ok() {
-        return Err(bad_request(
+        return Err(bad_request(tr!(
             "CPU 要用通用模型，请先在「设置 → 模型」中下载或导入。",
-        ));
+            "CPU에는 범용 모델이 필요합니다. 먼저 ‘설정 → 모델’에서 다운로드하거나 가져오십시오.",
+            "The CPU needs the general model. Download or import it in ‘Settings → Models’ first."
+        )));
     }
     // 显卡要在自检记录中通过检测、未被屏蔽、仍在系统中（与流水线选用的条件相同）；本次运行中出了问题的也可以选，
     // 流水线照样跳过它，设备页说明改用了哪个设备
@@ -277,9 +296,11 @@ pub(super) fn set_preferred_device(state: &Arc<State>, device: String) -> Result
         let cfg = config(state)?;
         let gpus = (cfg.gpus)();
         if selftest::cached_gpu(&cfg.selftest_cache, &gpus, images, Some(&device), &[]).is_none() {
-            return Err(bad_request(
+            return Err(bad_request(tr!(
                 "这块显卡没有通过检测或目前不能使用，请重新检测后再选择。",
-            ));
+                "이 그래픽 카드는 감지를 통과하지 못했거나 지금 쓸 수 없습니다. 다시 감지한 뒤 선택하십시오.",
+                "This GPU didn't pass detection or can't be used right now. Run detection again, then choose it."
+            )));
         }
     }
     let db = db(state)?;
@@ -314,16 +335,28 @@ pub(super) fn unblock_gpu(
     device: String,
     failed: bool,
 ) -> Result<Reply, ApiError> {
-    let done = if failed { "" } else { "已解除屏蔽。" };
+    let done = if failed {
+        ""
+    } else {
+        trs!("已解除屏蔽。", "차단을 해제했습니다. ", "Unblocked. ")
+    };
     let cfg = config(state)?;
     let gpus = (cfg.gpus)();
     let (note, was_started) = {
         let mut st = lock(&state.setup.selftest);
         if st.running {
             return Err(bad_request(if failed {
-                "设备检测正在进行，请等它完成后再重新检测。"
+                tr!(
+                    "设备检测正在进行，请等它完成后再重新检测。",
+                    "기기 감지가 진행 중입니다. 끝난 뒤 다시 감지하십시오.",
+                    "Device detection is in progress. Run it again when it finishes."
+                )
             } else {
-                "设备检测正在进行，请等它完成后再解除屏蔽。"
+                tr!(
+                    "设备检测正在进行，请等它完成后再解除屏蔽。",
+                    "기기 감지가 진행 중입니다. 끝난 뒤 차단을 해제하십시오.",
+                    "Device detection is in progress. Unblock it when detection finishes."
+                )
             }));
         }
         let absent = selftest::gpu_records(&cfg.selftest_cache, &gpus)
@@ -331,17 +364,36 @@ pub(super) fn unblock_gpu(
             .contains(&device);
         match selftest::clear_gpu_records(&cfg.selftest_cache, &device, failed) {
             Ok(true) => {}
-            Ok(false) if failed => return Err(bad_request("这个设备没有未通过的记录。")),
-            Ok(false) => return Err(bad_request("这块显卡没有被屏蔽。")),
+            Ok(false) if failed => {
+                return Err(bad_request(tr!(
+                    "这个设备没有未通过的记录。",
+                    "이 기기에는 감지 실패 기록이 없습니다.",
+                    "This device has no failed detection record."
+                )));
+            }
+            Ok(false) => {
+                return Err(bad_request(tr!(
+                    "这块显卡没有被屏蔽。",
+                    "이 그래픽 카드는 차단되어 있지 않습니다.",
+                    "This GPU isn't blocked."
+                )));
+            }
             Err(err) => {
                 log::error!("无法删除设备 {device} 的屏蔽或未通过记录：{err}");
-                return Err(api_error(ApiError::INTERNAL, "操作失败，请重试。"));
+                return Err(api_error(
+                    ApiError::INTERNAL,
+                    tr!(
+                        "操作失败，请重试。",
+                        "작업에 실패했습니다. 다시 시도하십시오.",
+                        "The operation failed. Try again."
+                    ),
+                ));
             }
         }
         // 本次运行中检测过时显示的是内存中的结果，同样改为未检测
         for d in st.devices.iter_mut().filter(|d| d.id == device) {
             d.status = DeviceStatus::Skipped;
-            d.reason = Some(selftest::UNBLOCKED_REASON.to_string());
+            d.reason = Some(selftest::shown_reason(selftest::UNBLOCKED_REASON).to_string());
             (d.text_ms, d.image_ms, d.audio_ms, d.video_ms) = (None, None, None, None);
             d.speed = None;
         }
@@ -352,11 +404,17 @@ pub(super) fn unblock_gpu(
         // 只测一块要靠其余设备的缓存结果；它们没测过本次需要的图片与音视频时，请用户整体重新检测
         let images = mmproj_on(&state.params()) && cfg.media_model_ok();
         let note = if absent {
-            Some(format!(
-                "{done}这块显卡目前不在系统中，重新接入后检测设备时会重新检测它。"
+            Some(tr!(
+                "{done}这块显卡目前不在系统中，重新接入后检测设备时会重新检测它。",
+                "{done}이 그래픽 카드는 지금 시스템에 없습니다. 다시 연결한 뒤 기기를 감지하면 함께 다시 감지합니다.",
+                "{done}This GPU isn't in the system right now. It will be tested again the next time devices are detected after it's reconnected."
             ))
         } else if !selftest::cache_covers(&cfg.selftest_cache, images) {
-            Some(format!("{done}检测结果需要更新，请重新检测全部设备。"))
+            Some(tr!(
+                "{done}检测结果需要更新，请重新检测全部设备。",
+                "{done}감지 결과를 업데이트해야 합니다. 모든 기기를 다시 감지하십시오.",
+                "{done}The detection results need updating. Detect all devices again."
+            ))
         } else {
             None
         };
@@ -396,22 +454,32 @@ pub(super) fn start_selftest(
 ) -> Result<Reply, ApiError> {
     let cfg = config(state)?.clone();
     if !cfg.text_model_ok() {
-        return Err(bad_request("请先下载或导入模型，再检测设备。"));
+        return Err(bad_request(tr!(
+            "请先下载或导入模型，再检测设备。",
+            "먼저 모델을 다운로드하거나 가져온 뒤 기기를 감지하십시오.",
+            "Download or import a model before detecting devices."
+        )));
     }
     // 本次运行中显卡出过驱动错误时不自动重试（自动检测由 `auto_selftest` 拦下）；用户手动检测或解除屏蔽可以当场重测
     {
         let mut st = lock(&state.setup.selftest);
         if st.running {
-            return Err(bad_request("设备检测正在进行，请等它完成。"));
+            return Err(bad_request(tr!(
+                "设备检测正在进行，请等它完成。",
+                "기기 감지가 진행 중입니다. 끝날 때까지 기다리십시오.",
+                "Device detection is in progress. Wait for it to finish."
+            )));
         }
         // 下载、导入或删除会替换或删掉检测要打开的模型文件；校验只读，不拦
         let busy = lock(&state.setup.task)
             .as_ref()
             .is_some_and(|t| t.state == ModelTaskState::Running && t.kind != ModelTaskKind::Verify);
         if busy {
-            return Err(bad_request(
+            return Err(bad_request(tr!(
                 "正在下载、导入或删除模型，请等它完成后再检测设备。",
-            ));
+                "모델을 다운로드, 가져오기 또는 삭제하는 중입니다. 끝난 뒤 기기를 감지하십시오.",
+                "A model is being downloaded, imported or deleted. Detect devices when it finishes."
+            )));
         }
         *st = SelftestStatus {
             running: true,
@@ -433,7 +501,14 @@ pub(super) fn start_selftest(
         log::error!("无法启动设备检测线程：{err}");
         *lock(&state.setup.selftest) = SelftestStatus::default();
         state.broadcast_selftest();
-        return Err(api_error(ApiError::INTERNAL, "无法开始设备检测，请重试。"));
+        return Err(api_error(
+            ApiError::INTERNAL,
+            tr!(
+                "无法开始设备检测，请重试。",
+                "기기 감지를 시작할 수 없습니다. 다시 시도하십시오.",
+                "Can't start device detection. Try again."
+            ),
+        ));
     }
     Ok(Reply::Done)
 }
@@ -534,8 +609,13 @@ pub(super) fn run_selftest(state: &State, cfg: &Config, onboarding: bool, mode: 
             *lock(&state.setup.selftest) = SelftestStatus {
                 devices: shown,
                 selected,
-                error: (!auto)
-                    .then(|| "正在处理的文件长时间没有结束，暂时无法检测设备，请稍后再试。".into()),
+                error: (!auto).then(|| {
+                    tr!(
+                        "正在处理的文件长时间没有结束，暂时无法检测设备，请稍后再试。",
+                        "처리 중인 파일이 오래 끝나지 않아 지금은 기기를 감지할 수 없습니다. 잠시 후 다시 시도하십시오.",
+                        "A file being processed hasn't finished for a long time, so devices can't be detected right now. Try again later."
+                    )
+                }),
                 ..SelftestStatus::default()
             };
             state.broadcast_selftest();
@@ -703,7 +783,12 @@ pub(super) fn run_selftest(state: &State, cfg: &Config, onboarding: bool, mode: 
             Err(err) => {
                 log::error!("设备检测无法进行：{err}");
                 st.devices = cached();
-                st.error = Some(format!("设备检测无法进行：{}", err.user_message()));
+                st.error = Some(tr!(
+                    "设备检测无法进行：{}",
+                    "기기를 감지할 수 없습니다: {}",
+                    "Can't detect devices: {}",
+                    err.user_message()
+                ));
             }
         }
     }

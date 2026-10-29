@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Appearance, CoreStatus } from '../../types'
 import { errorMessage } from '../../lib/errors'
-import { getLang, LANG_NAMES, LANGS } from '../../lib/i18n'
+import { getLang, LANG_NAMES, LANGS, t } from '../../lib/i18n'
 import { CLOSE_ACTION_KEY, isAndroid } from '../../lib/platform'
 import { readLocal, writeLocal } from '../../lib/storage'
 import CoreStatusNotice from '../CoreStatusNotice'
@@ -29,20 +29,20 @@ export default function AppearanceTab({ appearance, onChange, offline, coreStatu
   const change = (next: Appearance) => {
     onChange(next).catch((err) => {
       console.warn('无法保存外观设置：', err)
-      showToast(errorMessage(err, '外观设置未能保存，下次启动可能恢复原样。'), 'error')
+      showToast(errorMessage(err, t('外观设置未能保存，下次启动可能恢复原样。')), 'error')
     })
   }
 
   return (
     <div className="space-y-8">
       <section className="space-y-4">
-        <h4 className={SECTION_TITLE}>语言</h4>
+        <h4 className={SECTION_TITLE}>{t('语言')}</h4>
         {offline ? <CoreStatusNotice status={coreStatus} className={SECTION_NOTICE} /> : (
           <div className="flex items-center justify-between gap-3">
-            <span className={ROW_LABEL}>界面语言</span>
+            <span className={ROW_LABEL}>{t('界面语言')}</span>
             <div className="min-w-0 max-w-[60%]">
               <Select
-                label="界面语言"
+                label={t('界面语言')}
                 value={appearance.language ?? getLang()}
                 options={LANGS.map((l) => ({ label: LANG_NAMES[l], value: l }))}
                 onChange={(v) => change({ ...appearance, language: v })}
@@ -52,21 +52,21 @@ export default function AppearanceTab({ appearance, onChange, offline, coreStatu
         )}
       </section>
       <section className="space-y-4">
-        <h4 className={SECTION_TITLE}>字体</h4>
+        <h4 className={SECTION_TITLE}>{t('字体')}</h4>
         {offline ? <CoreStatusNotice status={coreStatus} className={SECTION_NOTICE} /> : (
           <>
             <FontSettingField
               slot="ui"
-              label="界面字体"
-              description="内置字体为 HarmonyOS Sans SC；选择“系统字体”时使用系统默认的字体。"
+              label={t('界面字体')}
+              description={t('内置字体为 Pretendard（韩文、英文）与 HarmonyOS Sans SC（中文）；选择“系统字体”时使用系统默认的字体。')}
               mode={appearance.uiFont}
               name={appearance.uiFontName}
               onChange={(mode, name) => change({ ...appearance, uiFont: mode, uiFontName: name })}
             />
             <FontSettingField
               slot="mono"
-              label="等宽字体"
-              description="内置字体为 Maple Mono NF CN，用于详情栏中的文档预览与排除规则等。"
+              label={t('等宽字体')}
+              description={t('内置字体为 Maple Mono NF CN，用于详情栏中的文档预览与排除规则等。')}
               mode={appearance.monoFont}
               name={appearance.monoFontName}
               onChange={(mode, name) => change({ ...appearance, monoFont: mode, monoFontName: name })}
@@ -76,17 +76,17 @@ export default function AppearanceTab({ appearance, onChange, offline, coreStatu
       </section>
       {!isAndroid && (
         <section className="space-y-4">
-          <h4 className={SECTION_TITLE}>窗口</h4>
+          <h4 className={SECTION_TITLE}>{t('窗口')}</h4>
           <div>
             <div className="mb-1 flex items-center justify-between gap-3">
-              <span className={ROW_LABEL}>关闭窗口时</span>
+              <span className={ROW_LABEL}>{t('关闭窗口时')}</span>
               <div className="min-w-0 max-w-[60%]">
                 <Select
-                  label="关闭窗口时"
+                  label={t('关闭窗口时')}
                   value={closeAction}
                   options={[
-                    { label: '留在托盘', value: 'tray' },
-                    { label: '退出 Rummage', value: 'quit' },
+                    { label: t('留在托盘'), value: 'tray' },
+                    { label: t('退出 Rummage'), value: 'quit' },
                   ]}
                   onChange={(v) => {
                     setCloseAction(v)
@@ -95,7 +95,7 @@ export default function AppearanceTab({ appearance, onChange, offline, coreStatu
                 />
               </div>
             </div>
-            <div className={ROW_DESC}>留在托盘时，后台服务继续建立索引；退出时，后台服务一并退出。</div>
+            <div className={ROW_DESC}>{t('留在托盘时，后台服务继续建立索引；退出时，后台服务一并退出。')}</div>
           </div>
         </section>
       )}

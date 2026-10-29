@@ -69,8 +69,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use rummage_proto::DeviceSpeed;
 use rummage_proto::params::{self, ParamValue};
+use rummage_proto::{DeviceSpeed, tr, trs};
 use serde::{Deserialize, Serialize};
 
 use crate::frame::GpuInfo;
@@ -240,6 +240,33 @@ const SKIPPED_REASON: &str =
     "另一块显卡在检测中出现驱动错误，为避免影响系统，本次不再检测其他显卡。";
 const NO_EVENT_LOG_REASON: &str = "无法读取系统日志，不能确认显卡驱动是否出错，本次不检测显卡。";
 
+/// 上面几种固定原因与 `UNBLOCKED_REASON` 按界面语言给出（测试按中文常量比较）；其他文字原样返回
+pub fn shown_reason(reason: &'static str) -> &'static str {
+    match reason {
+        SESSION_DISABLED_REASON => trs!(
+            "这块显卡本次运行中出现错误，重新启动 Rummage 后可以再次检测。",
+            "이 그래픽 카드(GPU)는 이번 실행 중 오류가 생겼습니다. Rummage를 다시 시작하면 다시 검사할 수 있습니다.",
+            "This GPU ran into an error during this session. Restart Rummage to check it again."
+        ),
+        SKIPPED_REASON => trs!(
+            "另一块显卡在检测中出现驱动错误，为避免影响系统，本次不再检测其他显卡。",
+            "다른 그래픽 카드(GPU)를 검사하다 드라이버 오류가 생겨, 시스템에 영향을 주지 않도록 이번에는 다른 그래픽 카드를 더 검사하지 않습니다.",
+            "Another GPU had a driver error during the check, so no other GPUs are checked this time to protect the system."
+        ),
+        NO_EVENT_LOG_REASON => trs!(
+            "无法读取系统日志，不能确认显卡驱动是否出错，本次不检测显卡。",
+            "시스템 로그를 읽을 수 없어 그래픽 카드 드라이버 오류 여부를 확인할 수 없으므로 이번에는 그래픽 카드를 검사하지 않습니다.",
+            "Can't read the system log to confirm whether the GPU driver had errors, so GPUs aren't checked this time."
+        ),
+        UNBLOCKED_REASON => trs!(
+            "已解除屏蔽，尚未重新检测。",
+            "차단을 해제했습니다. 아직 다시 검사하지 않았습니다.",
+            "Unblocked; not checked again yet."
+        ),
+        other => other,
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SampleResult {
     pub id: String,
@@ -333,7 +360,11 @@ impl CandidateReport {
         log::warn!("{} 检测失败：{context}{err}", self.name);
         // 设备检测的原因按设备说，不用针对文件的整句
         self.fail(if oom {
-            "显存或内存不足（可能被其他程序占用），本次不使用这个设备。".to_string()
+            tr!(
+                "显存或内存不足（可能被其他程序占用），本次不使用这个设备。",
+                "GPU 메모리나 메모리가 부족해(다른 프로그램이 사용 중일 수 있음) 이번에는 이 기기를 사용하지 않습니다.",
+                "Not enough GPU memory or RAM (another program may be using it), so this device isn't used this time."
+            )
         } else {
             err.user_message()
         });
@@ -625,7 +656,7 @@ pub fn run(
             },
             _ if event_log.is_err() => {
                 r.status = Status::Skipped;
-                r.reason = Some(NO_EVENT_LOG_REASON.to_string());
+                r.reason = Some(shown_reason(NO_EVENT_LOG_REASON).to_string());
                 return;
             }
             (Candidate::Litert(b), _) => match litert_spec(*b) {
@@ -634,9 +665,11 @@ pub fn run(
             },
             (Candidate::Gpu(g), _) => {
                 let Some(runtime) = &opts.vulkan_runtime else {
-                    return r.fail(
-                        "缺少显卡计算所需的组件，未检测这块显卡。请重新安装 Rummage。".to_string(),
-                    );
+                    return r.fail(tr!(
+                        "缺少显卡计算所需的组件，未检测这块显卡。请重新安装 Rummage。",
+                        "그래픽 카드 연산에 필요한 구성 요소가 없어 이 그래픽 카드를 검사하지 않았습니다. Rummage를 다시 설치하십시오.",
+                        "A component needed for GPU computing is missing, so this GPU wasn't checked. Reinstall Rummage."
+                    ));
                 };
                 let gpu = Gpu {
                     description: g.description.clone(),
@@ -745,7 +778,7 @@ fn skip_gpu(
     // 同一设备即算，不看驱动版本（拔出时查不到驱动，见 `cache` 模块说明）
     if disabled.iter().any(|d| d.same_device(key)) {
         r.status = Status::Skipped;
-        r.reason = Some(SESSION_DISABLED_REASON.to_string());
+        r.reason = Some(shown_reason(SESSION_DISABLED_REASON).to_string());
         return true;
     }
     let Some(b) = cache.blacklisted(key) else {
@@ -761,14 +794,19 @@ fn skip_gpu(
         Record::Blacklisted => (Status::Blacklisted, None),
         Record::Failed => (
             Status::Failed,
-            Some(
-                if cfg!(target_os = "android") {
-                    "这个设备此前检测时结果不达标，更新 Rummage 前不再自动检测，可以单独重新检测。"
-                } else {
-                    "这块显卡此前检测时结果不达标，更新显卡驱动或 Rummage 前不再自动检测，可以单独重新检测。"
-                }
-                .to_string(),
-            ),
+            Some(if cfg!(target_os = "android") {
+                tr!(
+                    "这个设备此前检测时结果不达标，更新 Rummage 前不再自动检测，可以单独重新检测。",
+                    "이 기기는 이전 검사에서 기준을 통과하지 못해 Rummage를 업데이트하기 전까지 자동으로 검사하지 않습니다. 따로 다시 검사할 수 있습니다.",
+                    "This device didn't pass its previous check, so it won't be checked automatically until Rummage is updated. You can check it again separately."
+                )
+            } else {
+                tr!(
+                    "这块显卡此前检测时结果不达标，更新显卡驱动或 Rummage 前不再自动检测，可以单独重新检测。",
+                    "이 그래픽 카드(GPU)는 이전 검사에서 기준을 통과하지 못해 그래픽 카드 드라이버나 Rummage를 업데이트하기 전까지 자동으로 검사하지 않습니다. 따로 다시 검사할 수 있습니다.",
+                    "This GPU didn't pass its previous check, so it won't be checked automatically until the GPU driver or Rummage is updated. You can check it again separately."
+                )
+            }),
         ),
     };
     true

@@ -4,6 +4,7 @@ import type { ConfigImport, ConfigPreview, ParamDef, ParamValue } from '../types
 import { errorMessage } from '../lib/errors'
 import { importMessage } from '../lib/config'
 import { showToast } from '../components/Toast'
+import { t } from '../lib/i18n'
 
 /**
  * 导入配置：Rust 侧选择并校验文件（`import_config`），再导入（`apply_config`）。
@@ -22,7 +23,7 @@ export function useConfigImport(defs: ParamDef[] | null, onDone?: () => void) {
       })
       .catch((err) => {
         console.warn('无法导入配置：', err)
-        showToast(errorMessage(err, '配置未能导入，请重试。'), 'error')
+        showToast(errorMessage(err, t('配置未能导入，请重试。')), 'error')
       })
       .finally(() => setBusy(false))
   }
@@ -44,7 +45,7 @@ export function useConfigImport(defs: ParamDef[] | null, onDone?: () => void) {
       })
       .catch((err) => {
         console.warn('无法读取配置：', err)
-        showToast(errorMessage(err, '无法读取配置文件，请重新选择。'), 'error')
+        showToast(errorMessage(err, t('无法读取配置文件，请重新选择。')), 'error')
         setBusy(false)
       })
   }

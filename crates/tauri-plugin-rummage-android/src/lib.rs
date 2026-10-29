@@ -1,5 +1,6 @@
 //! Android 上的存储权限、文件选择与后台建立索引，Kotlin 部分在 `android/`（`StoragePlugin`、`IndexService`）。
-//! - 只供 src-tauri 在 Rust 侧调用（`app.state::<Android<R>>()`），不向前端开放命令。
+//! - 只供 src-tauri 在 Rust 侧调用（`app.state::<Android<R>>()`）；唯一向前端开放的命令是 `set_language`
+//!   （`plugin:rummage-android|set_language`，直接转给 Kotlin 侧的 `setLanguage`），让通知等 Kotlin 侧文字跟随界面语言。
 //! - 读取被索引的文件靠“所有文件访问”权限（`MANAGE_EXTERNAL_STORAGE`），选择的文件夹换算成真实路径交给核心，
 //!   不持有文档提供者的 URI 授权；换算不了的位置（网盘等其他提供者）报告为不支持。
 //! - 选择文件时能换算成可读的真实路径就直接用，否则复制到调用方给的目录（同名加序号），由调用方用完后删除。
@@ -320,7 +321,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("rummage-android")
         .setup(|app, api| {
             let handle =
-                api.register_android_plugin("com.cooksleep.rummage.storage", "StoragePlugin")?;
+                api.register_android_plugin("com.marierie.rummage.storage", "StoragePlugin")?;
             app.manage(Android(handle));
             Ok(())
         })

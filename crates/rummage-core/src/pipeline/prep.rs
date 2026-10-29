@@ -41,7 +41,7 @@ use rummage_extract::{
 use rummage_index::{
     Claimed, Outcome, PART_MEDIA, PART_TEXT, content_hash, kind_of, quick_hash_with_id, wants_job,
 };
-use rummage_proto::params;
+use rummage_proto::{params, tr};
 
 use super::{Item, Msg, Prepared, Shared, Start, Task, docmedia, float, int, lock, space_row};
 
@@ -334,11 +334,20 @@ pub(super) fn supervise(
             }
             Err(Limit::Timeout) => {
                 log::warn!("处理 {} 超时，已放弃。", job.path.display());
-                format!("处理此文件超过 {} 秒，已放弃。", limit.as_secs_f64())
+                tr!(
+                    "处理此文件超过 {} 秒，已放弃。",
+                    "이 파일을 처리하는 데 {}초가 넘게 걸려 중단했습니다.",
+                    "Processing this file took longer than {} seconds, so it was skipped.",
+                    limit.as_secs_f64()
+                )
             }
             Err(Limit::Panic(msg)) => {
                 log::error!("处理 {} 时出错：{msg}", job.path.display());
-                "处理此文件时程序出错，已跳过。".to_string()
+                tr!(
+                    "处理此文件时程序出错，已跳过。",
+                    "이 파일을 처리하는 중 프로그램 오류가 발생해 건너뛰었습니다.",
+                    "A program error occurred while processing this file, so it was skipped."
+                )
             }
         };
         if out

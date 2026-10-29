@@ -34,9 +34,66 @@ use std::process::ExitCode;
 
 use chrono::{Days, Local, NaiveDate, TimeZone};
 use rummage_core::client::{self, Client, ConnectError};
-use rummage_proto::{ApiError, ParamKind, Reply, Request, params};
+use rummage_proto::i18n::{Lang, set_lang};
+use rummage_proto::{ApiError, ParamKind, Reply, Request, params, tr, trs};
 
-const BAD_OUTPUT: &str = "--output 的文件扩展名应为 .csv、.json 或 .txt。";
+fn bad_output() -> String {
+    tr!(
+        "--output 的文件扩展名应为 .csv、.json 或 .txt。",
+        "--output 파일의 확장자는 .csv, .json, .txt 중 하나여야 합니다.",
+        "The --output file extension must be .csv, .json or .txt."
+    )
+}
+
+pub(crate) fn unknown_arg(arg: &str) -> String {
+    tr!(
+        "无法识别的参数：{arg}。",
+        "알 수 없는 인수입니다: {arg}",
+        "Unrecognized argument: {arg}"
+    )
+}
+
+pub(crate) fn missing_dir() -> String {
+    tr!(
+        "--data-dir 后面缺少路径。",
+        "--data-dir 뒤에 경로가 없습니다.",
+        "--data-dir needs a path after it."
+    )
+}
+
+pub(crate) fn no_runtime(err: &io::Error) -> String {
+    tr!(
+        "无法启动异步运行时：{err}",
+        "비동기 런타임을 시작할 수 없습니다: {err}",
+        "Could not start the async runtime: {err}"
+    )
+}
+
+/// 命令行与 MCP 在自己的进程中运行，界面语言要自己定：先按环境变量 `LC_ALL` / `LANG`，都没有时为韩语；
+/// 连上后台服务后改用外观设置中的语言（`lang_from_core`）
+pub(crate) fn lang_from_env() {
+    let v = ["LC_ALL", "LANG"]
+        .iter()
+        .find_map(|k| std::env::var(k).ok().filter(|v| !v.is_empty()))
+        .unwrap_or_default()
+        .to_lowercase();
+    set_lang(if v.starts_with("zh") {
+        Lang::Zh
+    } else if v.starts_with("en") {
+        Lang::En
+    } else {
+        Lang::Ko
+    });
+}
+
+/// 按外观设置中的语言改界面语言；没有设置或取不到时保持 `lang_from_env` 定的
+pub(crate) async fn lang_from_core(client: &mut Client) {
+    if let Ok(Ok(Reply::Appearance(a))) = client::request(client, 0, Request::GetAppearance).await
+        && let Some(lang) = a.language
+    {
+        set_lang(lang);
+    }
+}
 
 pub(crate) const KINDS: [&str; 5] = ["document", "image", "audio", "video", "other"];
 
@@ -79,7 +136,7 @@ pub(crate) fn limit_range() -> (u32, u32) {
 
 pub fn usage() -> String {
     let max = limit_range().1;
-    format!(
+    tr!(
         "用法：
   rummage-core search [<查询>] [--image <图片>] [--type <类型,…>] [--folder <文件夹>]
                       [--since <日期>] [--until <日期>] [--limit <数量>] [--include-weak]
@@ -110,6 +167,66 @@ pub fn usage() -> String {
   pause 的分钟数为 1–{pause}，不给时一直暂停到 resume；暂停期间照常可以搜索。
   以上命令都可以加 --data-dir <目录> 指定数据目录。
   退出码：0 有结果或操作成功，1 没有结果，2 出错。",
+        "사용법:
+  rummage-core search [<검색어>] [--image <이미지>] [--type <유형,…>] [--folder <폴더>]
+                      [--since <날짜>] [--until <날짜>] [--limit <개수>] [--include-weak]
+                      [--output <파일>] [--json]
+  rummage-core status [--json]
+  rummage-core context <결과 ID> [--json]
+  rummage-core folders [--json]                   색인 폴더, 내용을 인식할 파일 유형, 진행 상황
+  rummage-core folders add <폴더> [--types <유형,…>] [--exclude <규칙>]… [--json]
+  rummage-core folders set <폴더> [--types <유형,…>] [--exclude <규칙>]… [--no-exclude] [--json]
+  rummage-core folders remove <폴더> [--json]     색인만 제거하고 파일은 지우지 않음
+  rummage-core settings [<키>] [--json]           설정 보기: 현재값, 기본값, 범위, 색인에 영향을 주는지
+  rummage-core settings set <키> <값> [--json]
+  rummage-core pause [--minutes <분>] [--json]    색인 생성 일시정지
+  rummage-core resume [--json]
+  rummage-core failed [--json]                    색인 생성에 실패한 파일과 원인
+  rummage-core failed retry [--json]              실패한 파일 모두 다시 시도
+  rummage-core mcp                        AI 클라이언트에서 쓸 MCP 서비스를 stdio로 실행
+
+  색인된 파일을 내용으로 검색합니다. 검색어는 설명하는 문장이나 키워드 모두 됩니다. --image는 이미지로 검색하며, 텍스트 설명을 함께 줄 수 있습니다.
+  유형: document, image, audio, video, other(파일 이름으로만 색인된 파일). 여러 개는 쉼표로 구분합니다.
+  폴더: 색인 폴더나 그 하위 폴더이며, 여러 번 줄 수 있습니다. 색인 폴더는 status로 확인합니다. 날짜: YYYY-MM-DD, 현지 시간, 그날 포함. 개수: 1–{max}, 기본값 20.
+  --include-weak는 일치도가 낮은 결과도 함께 표시합니다. --json은 JSON으로 출력합니다(ASCII가 아닌 문자는 \\uXXXX로 이스케이프).
+  --output은 결과를 새 파일에 저장합니다. 형식은 확장자에 따라 .csv, .json, .txt(한 줄에 경로 하나) 중 하나입니다.
+  결과 ID는 search 결과에 나오며, context는 그 위치의 색인된 본문과 앞뒤 단락을 출력합니다.
+  folders의 --types는 내용을 인식할 파일 유형(document, image, audio, video)이며, 모든 폴더에 같이 적용됩니다.
+  --exclude는 제외 규칙을 하나씩 지정하며(.gitignore와 같은 문법) 여러 번 줄 수 있습니다. folders set에서 --exclude를 주면 기존 규칙을 통째로 바꾸고,
+  --no-exclude는 규칙을 모두 지웁니다. settings set의 값: 켜기/끄기는 true 또는 false, 이름이 있는 선택지는 이름으로 써도 됩니다.
+  pause의 분은 1–{pause}이며, 생략하면 resume할 때까지 일시정지합니다. 일시정지 중에도 검색은 할 수 있습니다.
+  위 명령에는 모두 --data-dir <폴더>를 붙여 데이터 폴더를 지정할 수 있습니다.
+  종료 코드: 0 결과 있음 또는 작업 성공, 1 결과 없음, 2 오류.",
+        "Usage:
+  rummage-core search [<query>] [--image <image>] [--type <type,…>] [--folder <folder>]
+                      [--since <date>] [--until <date>] [--limit <count>] [--include-weak]
+                      [--output <file>] [--json]
+  rummage-core status [--json]
+  rummage-core context <hit ID> [--json]
+  rummage-core folders [--json]                   Indexed folders, content file types and progress
+  rummage-core folders add <folder> [--types <type,…>] [--exclude <rule>]… [--json]
+  rummage-core folders set <folder> [--types <type,…>] [--exclude <rule>]… [--no-exclude] [--json]
+  rummage-core folders remove <folder> [--json]   Removes only the index; files are not deleted
+  rummage-core settings [<key>] [--json]          Show settings: current value, default, range, whether it affects the index
+  rummage-core settings set <key> <value> [--json]
+  rummage-core pause [--minutes <minutes>] [--json]  Pause indexing
+  rummage-core resume [--json]
+  rummage-core failed [--json]                    Files that failed to index, with reasons
+  rummage-core failed retry [--json]              Retry all failed files
+  rummage-core mcp                        Run the MCP server over stdio for AI clients
+
+  Searches indexed files by content. The query can be a description or keywords; --image searches by image and can be combined with a text description.
+  Types: document, image, audio, video, other (files indexed by name only), separated by commas.
+  Folders: an indexed folder or a subfolder of one; can be given more than once. See indexed folders with status. Dates: YYYY-MM-DD, local time, inclusive. Count: 1–{max}, default 20.
+  --include-weak also shows lower-match results; --json prints JSON (non-ASCII characters escaped as \\uXXXX).
+  --output saves the results to a new file, in the format given by the extension: .csv, .json or .txt (one path per line).
+  Hit IDs appear in search results; context prints the indexed text at that hit with the paragraphs before and after.
+  --types for folders sets the file types whose content is recognized (document, image, audio, video); it applies to all folders.
+  --exclude gives one exclude rule each time (.gitignore syntax) and can be repeated; with folders set, --exclude replaces the existing rules,
+  --no-exclude clears them. Values for settings set: true or false for switches; named options can be given by name.
+  pause takes 1–{pause} minutes; without it, indexing stays paused until resume. You can still search while paused.
+  All commands above accept --data-dir <folder> to choose the data folder.
+  Exit codes: 0 results found or success, 1 no results, 2 error.",
         pause = crate::manage::MAX_PAUSE_MIN
     )
 }
@@ -185,13 +302,59 @@ impl From<Outcome> for ExitCode {
 }
 
 fn utf8(v: OsString, flag: &str) -> Result<String, String> {
-    v.into_string()
-        .map_err(|_| format!("{flag} 的值含有无法识别的字符。"))
+    v.into_string().map_err(|_| {
+        tr!(
+            "{flag} 的值含有无法识别的字符。",
+            "{flag}의 값에 인식할 수 없는 문자가 있습니다.",
+            "The value of {flag} contains unrecognized characters."
+        )
+    })
 }
 
 pub(crate) fn parse_date(s: &str, flag: &str) -> Result<NaiveDate, String> {
     NaiveDate::parse_from_str(s, "%Y-%m-%d")
-        .map_err(|_| format!("{flag} 的日期“{s}”无法识别，请写成 YYYY-MM-DD，例如 2026-01-05。"))
+        .map_err(|_| {
+            tr!(
+                "{flag} 的日期“{s}”无法识别，请写成 YYYY-MM-DD，例如 2026-01-05。",
+                "{flag} 날짜를 인식할 수 없습니다: ‘{s}’. YYYY-MM-DD 형식으로 쓰십시오(예: 2026-01-05).",
+                "Could not read the {flag} date \"{s}\". Write it as YYYY-MM-DD, e.g. 2026-01-05."
+            )
+        })
+}
+
+pub(crate) fn missing_value(flag: &str) -> String {
+    tr!(
+        "{flag} 后面缺少值。",
+        "{flag} 뒤에 값이 없습니다.",
+        "{flag} needs a value after it."
+    )
+}
+
+/// 类型不在 `allowed` 中（命令行的 `--type` 与 `--types` 共用）
+pub(crate) fn unknown_kind(kind: &str, allowed: &[&str]) -> String {
+    tr!(
+        "无法识别的类型“{kind}”，可选：{}。",
+        "알 수 없는 유형입니다: ‘{kind}’. 사용할 수 있는 유형: {}",
+        "Unrecognized type \"{kind}\". Choose from: {}.",
+        allowed.join(trs!("、", ", ", ", "))
+    )
+}
+
+pub(crate) fn bad_path(p: &Path) -> String {
+    tr!(
+        "无法识别路径 \"{}\"。",
+        "경로를 인식할 수 없습니다: \"{}\"",
+        "Could not read the path \"{}\".",
+        p.display()
+    )
+}
+
+pub(crate) fn print_failed(err: &io::Error) -> String {
+    tr!(
+        "无法输出结果：{err}",
+        "결과를 출력할 수 없습니다: {err}",
+        "Could not print the results: {err}"
+    )
 }
 
 /// 子命令名（`main` 据此分派给 `parse`）
@@ -222,7 +385,7 @@ pub fn parse(cmd: &str, args: impl IntoIterator<Item = OsString>) -> Result<Args
     while let Some(arg) = args.next() {
         let flag = arg.to_string_lossy().into_owned();
         if !flag.starts_with("--") {
-            words.push(utf8(arg, "查询")?);
+            words.push(utf8(arg, trs!("查询", "검색어", "query"))?);
             continue;
         }
         match flag.as_str() {
@@ -249,9 +412,9 @@ pub fn parse(cmd: &str, args: impl IntoIterator<Item = OsString>) -> Result<Args
                         | "--output"
                 ));
         if !known {
-            return Err(format!("无法识别的参数：{flag}。"));
+            return Err(unknown_arg(&flag));
         }
-        let value = args.next().ok_or_else(|| format!("{flag} 后面缺少值。"))?;
+        let value = args.next().ok_or_else(|| missing_value(&flag))?;
         match flag.as_str() {
             "--data-dir" => data_dir = Some(PathBuf::from(value)),
             "--image" => s.image = Some(PathBuf::from(value)),
@@ -259,13 +422,13 @@ pub fn parse(cmd: &str, args: impl IntoIterator<Item = OsString>) -> Result<Args
             "--output" => {
                 let path = PathBuf::from(value);
                 if export::ext(&path).is_none() {
-                    return Err(BAD_OUTPUT.into());
+                    return Err(bad_output());
                 }
                 s.output = Some(path);
             }
             "--type" => {
                 for k in parse_kinds(utf8(value, &flag)?.split([',', '，']), &KINDS)
-                    .map_err(|k| format!("无法识别的类型“{k}”，可选：{}。", KINDS.join("、")))?
+                    .map_err(|k| unknown_kind(&k, &KINDS))?
                 {
                     if !s.kinds.contains(&k) {
                         s.kinds.push(k);
@@ -280,7 +443,13 @@ pub fn parse(cmd: &str, args: impl IntoIterator<Item = OsString>) -> Result<Args
                     .parse()
                     .ok()
                     .filter(|n| (1..=max).contains(n))
-                    .ok_or(format!("--limit 应为 1–{max} 的整数。"))?;
+                    .ok_or_else(|| {
+                        tr!(
+                            "--limit 应为 1–{max} 的整数。",
+                            "--limit는 1–{max} 사이의 정수여야 합니다.",
+                            "--limit must be a whole number from 1 to {max}."
+                        )
+                    })?;
             }
         }
     }
@@ -289,26 +458,40 @@ pub fn parse(cmd: &str, args: impl IntoIterator<Item = OsString>) -> Result<Args
             let text = words.join(" ").trim().to_string();
             s.text = (!text.is_empty()).then_some(text);
             if s.text.is_none() && s.image.is_none() {
-                return Err("请给出查询文字或 --image。".into());
+                return Err(tr!(
+                    "请给出查询文字或 --image。",
+                    "검색어나 --image를 지정하십시오.",
+                    "Give a query or --image."
+                ));
             }
             if let (Some(a), Some(b)) = (s.since, s.until)
                 && a > b
             {
-                return Err("--since 不能晚于 --until。".into());
+                return Err(tr!(
+                    "--since 不能晚于 --until。",
+                    "--since는 --until보다 늦을 수 없습니다.",
+                    "--since cannot be later than --until."
+                ));
             }
             Cmd::Search(s)
         }
         "status" if words.is_empty() => Cmd::Status,
-        "status" => return Err(format!("无法识别的参数：{}。", words[0])),
+        "status" => return Err(unknown_arg(&words[0])),
         _ => {
-            let [id]: [String; 1] = words
-                .try_into()
-                .map_err(|_| "context 需要且只需要一个命中 ID。")?;
-            let id = id
-                .parse()
-                .ok()
-                .filter(|n| *n > 0)
-                .ok_or(format!("命中 ID“{id}”应为正整数，见 search 的结果。"))?;
+            let [id]: [String; 1] = words.try_into().map_err(|_| {
+                tr!(
+                    "context 需要且只需要一个命中 ID。",
+                    "context에는 결과 ID를 하나만 지정해야 합니다.",
+                    "context needs exactly one hit ID."
+                )
+            })?;
+            let id = id.parse().ok().filter(|n| *n > 0).ok_or_else(|| {
+                tr!(
+                    "命中 ID“{id}”应为正整数，见 search 的结果。",
+                    "결과 ID는 양의 정수여야 합니다: ‘{id}’. search 결과를 확인하십시오.",
+                    "The hit ID \"{id}\" must be a positive whole number; see the search results."
+                )
+            })?;
             Cmd::Context(id)
         }
     };
@@ -378,7 +561,11 @@ impl Session {
             Ok(Err(err)) => Err(plain(&err.message)),
             // 断开时的消息本身就是整句，不再加前缀
             Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => Err(err.to_string()),
-            Err(err) => Err(format!("与 Rummage 后台服务的连接中断：{err}")),
+            Err(err) => Err(tr!(
+                "与 Rummage 后台服务的连接中断：{err}",
+                "Rummage 백그라운드 서비스와의 연결이 끊어졌습니다: {err}",
+                "The connection to the Rummage background service was lost: {err}"
+            )),
         }
     }
 }
@@ -414,21 +601,27 @@ pub(crate) fn plain(msg: &str) -> String {
 }
 
 pub(crate) fn unexpected() -> String {
-    "Rummage 后台服务的回复无法识别，请确认命令行与 Rummage 是同一版本。".into()
+    tr!(
+        "Rummage 后台服务的回复无法识别，请确认命令行与 Rummage 是同一版本。",
+        "Rummage 백그라운드 서비스의 응답을 인식할 수 없습니다. 명령줄 도구와 Rummage가 같은 버전인지 확인하십시오.",
+        "The reply from the Rummage background service was not recognized. Make sure the command-line tool and Rummage are the same version."
+    )
 }
 
 pub(crate) fn connect_error(err: ConnectError) -> String {
     match err {
-        ConnectError::NotRunning => "Rummage 后台服务没有启动成功，请打开 Rummage 查看。".into(),
+        ConnectError::NotRunning => tr!(
+            "Rummage 后台服务没有启动成功，请打开 Rummage 查看。",
+            "Rummage 백그라운드 서비스를 시작하지 못했습니다. Rummage를 열어 확인하십시오.",
+            "The Rummage background service did not start. Open Rummage to check."
+        ),
         ConnectError::Rejected(ApiError { message, .. }) => plain(&message),
         err => err.to_string(),
     }
 }
 
 async fn run_search(s: &mut Session, a: SearchArgs, json: bool) -> Result<Outcome, String> {
-    let cwd = |p: &Path| {
-        std::path::absolute(p).map_err(|_| format!("无法识别路径 \"{}\"。", p.display()))
-    };
+    let cwd = |p: &Path| std::path::absolute(p).map_err(|_| bad_path(p));
     let mut folders = Vec::new();
     for folder in &a.folders {
         let folder = cwd(folder)?;
@@ -496,11 +689,21 @@ async fn run_search(s: &mut Session, a: SearchArgs, json: bool) -> Result<Outcom
             let path = cwd(path)?;
             export::save(&path, &shown).map_err(|err| match err {
                 export::ExportError::Exists => {
-                    format!("\"{}\" 已存在，请换一个文件名。", path.display())
+                    tr!(
+                        "\"{}\" 已存在，请换一个文件名。",
+                        "\"{}\" 파일이 이미 있습니다. 다른 파일 이름을 쓰십시오.",
+                        "\"{}\" already exists. Use a different file name.",
+                        path.display()
+                    )
                 }
-                export::ExportError::Format => BAD_OUTPUT.into(),
+                export::ExportError::Format => bad_output(),
                 export::ExportError::Io(err) => {
-                    format!("无法写入 \"{}\"：{err}", path.display())
+                    tr!(
+                        "无法写入 \"{}\"：{err}",
+                        "\"{}\"에 쓸 수 없습니다: {err}",
+                        "Could not write \"{}\": {err}",
+                        path.display()
+                    )
                 }
             })?;
             output::export_text(&res, &path, json)
@@ -508,7 +711,7 @@ async fn run_search(s: &mut Session, a: SearchArgs, json: bool) -> Result<Outcom
         None if json => output::search_json(&res),
         None => output::search_text(&res),
     };
-    emit(&text).map_err(|err| format!("无法输出结果：{err}"))?;
+    emit(&text).map_err(|err| print_failed(&err))?;
     Ok(if shown.is_empty() {
         Outcome::Empty
     } else {
@@ -537,7 +740,7 @@ async fn run_status(s: &mut Session, json: bool) -> Result<Outcome, String> {
     } else {
         output::status_text(&st)
     };
-    emit(&text).map_err(|err| format!("无法输出结果：{err}"))?;
+    emit(&text).map_err(|err| print_failed(&err))?;
     Ok(Outcome::Found)
 }
 
@@ -547,11 +750,25 @@ async fn run_context(s: &mut Session, id: i64, json: bool) -> Result<Outcome, St
         return Err(unexpected());
     };
     let Some(seg) = segment else {
-        eprintln!("命中 {id} 已失效（文件可能已重新建立索引），请重新搜索。");
+        eprintln!(
+            "{}",
+            tr!(
+                "命中 {id} 已失效（文件可能已重新建立索引），请重新搜索。",
+                "결과 ID {id}: 더 이상 유효하지 않습니다(파일이 다시 색인되었을 수 있음). 다시 검색하십시오.",
+                "Hit {id} is no longer valid (the file may have been re-indexed). Search again."
+            )
+        );
         return Ok(Outcome::Empty);
     };
     if seg.text.is_none() {
-        eprintln!("命中 {id} 没有文字内容（图片、音视频，或文档中的图片或音视频）。");
+        eprintln!(
+            "{}",
+            tr!(
+                "命中 {id} 没有文字内容（图片、音视频，或文档中的图片或音视频）。",
+                "결과 ID {id}: 텍스트 내용이 없습니다(이미지, 오디오·동영상 또는 문서 안의 이미지나 오디오·동영상).",
+                "Hit {id} has no text (an image, audio or video, or one inside a document)."
+            )
+        );
         return Ok(Outcome::Empty);
     }
     // 文件已移除等情况下取不到信息，只输出正文
@@ -569,7 +786,7 @@ async fn run_context(s: &mut Session, id: i64, json: bool) -> Result<Outcome, St
     } else {
         output::context_text(file.as_ref(), &seg)
     };
-    emit(&text).map_err(|err| format!("无法输出结果：{err}"))?;
+    emit(&text).map_err(|err| print_failed(&err))?;
     Ok(Outcome::Found)
 }
 
@@ -577,17 +794,31 @@ async fn run_context(s: &mut Session, id: i64, json: bool) -> Result<Outcome, St
 pub(crate) fn data_dir(dir: Option<PathBuf>) -> Result<PathBuf, String> {
     let dir = match dir {
         // 指定的目录必须已有索引数据库，否则拉起的核心会在那里新建一个空的数据目录；相对路径按本进程的当前目录
-        Some(dir) if dir.join("index.db").is_file() => std::path::absolute(&dir)
-            .map_err(|err| format!("无法识别路径 \"{}\"：{err}", dir.display()))?,
+        Some(dir) if dir.join("index.db").is_file() => {
+            std::path::absolute(&dir).map_err(|err| {
+                tr!(
+                    "无法识别路径 \"{}\"：{err}",
+                    "경로를 인식할 수 없습니다(\"{}\"): {err}",
+                    "Could not read the path \"{}\": {err}",
+                    dir.display()
+                )
+            })?
+        }
         Some(dir) => {
-            return Err(format!(
+            return Err(tr!(
                 "这不是 Rummage 的数据目录（\"{}\"）。",
+                "Rummage 데이터 폴더가 아닙니다(\"{}\").",
+                "This is not a Rummage data folder (\"{}\").",
                 dir.display()
             ));
         }
         None => rummage_datadir::locate().map_err(|err| match err {
             rummage_datadir::Error::Missing(_) | rummage_datadir::Error::Invalid { .. } => {
-                format!("{err}请先打开 Rummage。")
+                tr!(
+                    "{err}请先打开 Rummage。",
+                    "{err} 먼저 Rummage를 실행하십시오.",
+                    "{err} Open Rummage first."
+                )
             }
             err => err.to_string(),
         })?,
@@ -598,11 +829,17 @@ pub(crate) fn data_dir(dir: Option<PathBuf>) -> Result<PathBuf, String> {
 pub async fn run(args: Args) -> Outcome {
     let res = async {
         let dir = data_dir(args.data_dir)?;
-        let exe = std::env::current_exe()
-            .map_err(|err| format!("无法确定 rummage-core 的位置：{err}"))?;
-        let client = client::connect_or_start(&dir, &exe, &mut None)
+        let exe = std::env::current_exe().map_err(|err| {
+            tr!(
+                "无法确定 rummage-core 的位置：{err}",
+                "rummage-core의 위치를 확인할 수 없습니다: {err}",
+                "Could not determine the location of rummage-core: {err}"
+            )
+        })?;
+        let mut client = client::connect_or_start(&dir, &exe, &mut None)
             .await
             .map_err(connect_error)?;
+        lang_from_core(&mut client).await;
         let mut s = Session { client, next: 0 };
         match args.cmd {
             Cmd::Search(a) => run_search(&mut s, a, args.json).await,
