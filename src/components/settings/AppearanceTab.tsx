@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Appearance, CoreStatus } from '../../types'
 import { errorMessage } from '../../lib/errors'
+import { getLang, LANG_NAMES, LANGS } from '../../lib/i18n'
 import { CLOSE_ACTION_KEY, isAndroid } from '../../lib/platform'
 import { readLocal, writeLocal } from '../../lib/storage'
 import CoreStatusNotice from '../CoreStatusNotice'
@@ -19,7 +20,7 @@ interface Props {
 }
 
 /**
- * “外观”页：界面与等宽字体，以及关闭窗口时留在托盘还是退出；字体许可的入口在“关于”页。
+ * “外观”页：界面语言，界面与等宽字体，以及关闭窗口时留在托盘还是退出；字体许可的入口在“关于”页。
  * 关闭窗口的行为只关乎界面进程，存在本地（`CLOSE_ACTION_KEY`），由关闭处理读取（`installCloseWatch`）；Android 上没有这一项
  */
 export default function AppearanceTab({ appearance, onChange, offline, coreStatus }: Props) {
@@ -34,6 +35,22 @@ export default function AppearanceTab({ appearance, onChange, offline, coreStatu
 
   return (
     <div className="space-y-8">
+      <section className="space-y-4">
+        <h4 className={SECTION_TITLE}>语言</h4>
+        {offline ? <CoreStatusNotice status={coreStatus} className={SECTION_NOTICE} /> : (
+          <div className="flex items-center justify-between gap-3">
+            <span className={ROW_LABEL}>界面语言</span>
+            <div className="min-w-0 max-w-[60%]">
+              <Select
+                label="界面语言"
+                value={appearance.language ?? getLang()}
+                options={LANGS.map((l) => ({ label: LANG_NAMES[l], value: l }))}
+                onChange={(v) => change({ ...appearance, language: v })}
+              />
+            </div>
+          </div>
+        )}
+      </section>
       <section className="space-y-4">
         <h4 className={SECTION_TITLE}>字体</h4>
         {offline ? <CoreStatusNotice status={coreStatus} className={SECTION_NOTICE} /> : (

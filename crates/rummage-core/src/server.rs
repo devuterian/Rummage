@@ -109,6 +109,13 @@ impl State {
         let mut values = params::defaults();
         let mut manual = None;
         let db = db.and_then(|db| {
+            let lang = db
+                .meta_get(settings::APPEARANCE_KEY)?
+                .and_then(|raw| serde_json::from_str::<rummage_proto::Appearance>(&raw).ok())
+                .and_then(|a| a.language);
+            if let Some(lang) = lang {
+                rummage_proto::i18n::set_lang(lang);
+            }
             if let Some(raw) = db.meta_get(MANUAL_KEY)? {
                 manual = resource::decode_manual(&raw);
                 if manual.is_none() {

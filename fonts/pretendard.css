@@ -1,0 +1,8 @@
+/* Pretendard Variable v1.3.9，官方发布包中的 woff2 原文件（SIL OFL 1.1） */
+@font-face {
+  font-family: 'Pretendard Variable';
+  src: url('./PretendardVariable.woff2') format('woff2-variations');
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+}

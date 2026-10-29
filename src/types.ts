@@ -517,12 +517,16 @@ export interface Estimate {
 /** 字体来源，对应 Rust `rummage_proto::FontMode` */
 export type FontMode = 'builtin' | 'system' | 'custom'
 
-/** 外观设置，对应 Rust `rummage_proto::Appearance`；字体名只在 `custom` 时使用 */
+/** 界面语言，对应 Rust `rummage_proto::Lang` */
+export type Lang = 'zh' | 'ko' | 'en'
+
+/** 外观设置，对应 Rust `rummage_proto::Appearance`；字体名只在 `custom` 时使用，语言没有保存过时为空 */
 export interface Appearance {
   uiFont: FontMode
   uiFontName: string
   monoFont: FontMode
   monoFontName: string
+  language?: Lang
 }
 
 /** 设置页顶部的通知，对应 Rust `rummage_proto::Notice` */

@@ -1,4 +1,4 @@
-//! 设置页的命令：参数定义、根目录排除规则、外观与通知。除参数定义外都转给核心进程，
+//! 设置页的命令：参数定义、根目录排除规则、外观（含界面语言，取得、保存时同步本进程的 `rummage_proto::i18n`）与通知。除参数定义外都转给核心进程，
 //! 拆开回复后返回。参数值的读写沿用引导的 `get_params`、`set_param`（`setup`）。
 //! 排除规则只按根目录 ID 修改，前端提交不了路径。
 use rummage_proto::{ApiError, Appearance, Notice, ParamDef, Reply, Request, params};
@@ -31,7 +31,12 @@ pub async fn set_root_excludes<R: Runtime>(
 #[tauri::command]
 pub async fn get_appearance<R: Runtime>(app: AppHandle<R>) -> Result<Appearance, ApiError> {
     match core::request(&app, Request::GetAppearance).await? {
-        Reply::Appearance(a) => Ok(a),
+        Reply::Appearance(a) => {
+            if let Some(lang) = a.language {
+                rummage_proto::i18n::set_lang(lang);
+            }
+            Ok(a)
+        }
         other => Err(unexpected(&other)),
     }
 }
@@ -41,6 +46,9 @@ pub async fn set_appearance<R: Runtime>(
     app: AppHandle<R>,
     appearance: Appearance,
 ) -> Result<(), ApiError> {
+    if let Some(lang) = appearance.language {
+        rummage_proto::i18n::set_lang(lang);
+    }
     core::done(&app, Request::SetAppearance { appearance }).await
 }
 

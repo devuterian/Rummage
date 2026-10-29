@@ -2,6 +2,8 @@
 //! 请求、回复的枚举项在 `lib.rs` 中，这里只放它们携带的类型。前端的对应类型在 `src/types.ts`。
 use serde::{Deserialize, Serialize};
 
+use crate::Lang;
+
 /// 字体来源：内置字体、只用系统字体回退列表，或用户填写的字体名
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -21,6 +23,9 @@ pub struct Appearance {
     pub ui_font_name: String,
     pub mono_font: FontMode,
     pub mono_font_name: String,
+    /// 界面语言；没有保存过时为空，由界面按系统语言选择后保存
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<Lang>,
 }
 
 /// 需要在设置页顶部提示、用户确认后清除的通知
@@ -43,6 +48,7 @@ mod tests {
             ui_font_name: "霞鹜文楷 \"Screen\"".into(),
             mono_font: FontMode::System,
             mono_font_name: String::new(),
+            language: Some(Lang::Ko),
         };
         assert_eq!(decode::<Appearance>(&encode(&a)).unwrap(), a);
         assert_eq!(

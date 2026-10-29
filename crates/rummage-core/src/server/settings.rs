@@ -1,17 +1,17 @@
 //! 设置页在核心状态上的部分：
 //! - 根目录的用户排除规则：保存后重新扫描该根目录，新排除的文件在对账时删除，
 //!   不再排除的文件重新加入。
-//! - 外观（字体）存在 `meta` 表的 `appearance`（JSON），与其他设置统一放在核心；没有或无法解析时为默认值。
+//! - 外观（字体与界面语言）存在 `meta` 表的 `appearance`（JSON），与其他设置统一放在核心；没有或无法解析时为默认值。
 //!   界面另在本地缓存一份，只为首次绘制前就用上字体，以核心为准。
 //! - 通知：迁移失败后从备份恢复数据库时写入的 `notice.db_restored`，设置页提示一次，用户确认后删除。
 use std::sync::Arc;
 
 use rummage_index::NOTICE_DB_RESTORED;
-use rummage_proto::{ApiError, Appearance, Event, Notice, Reply, Request};
+use rummage_proto::{ApiError, Appearance, Event, Notice, Reply, Request, tr};
 
 use super::{ScanJob, State, api_error, db, root_error, unavailable};
 
-const APPEARANCE_KEY: &str = "appearance";
+pub(super) const APPEARANCE_KEY: &str = "appearance";
 /// 自定义字体名的长度上限（字符），只为挡住误粘贴的长文本
 const MAX_FONT_NAME: usize = 100;
 
@@ -39,6 +39,9 @@ pub(super) fn respond(state: &Arc<State>, body: Request) -> Result<Reply, ApiErr
                         .ok()
                 })
                 .unwrap_or_default();
+            if let Some(lang) = appearance.language {
+                rummage_proto::i18n::set_lang(lang);
+            }
             Ok(Reply::Appearance(appearance))
         }
         Request::SetAppearance { appearance } => {
@@ -52,13 +55,20 @@ pub(super) fn respond(state: &Arc<State>, body: Request) -> Result<Reply, ApiErr
             {
                 return Err(api_error(
                     ApiError::BAD_REQUEST,
-                    format!("字体名称不能超过 {MAX_FONT_NAME} 个字。"),
+                    tr!(
+                        "字体名称不能超过 {MAX_FONT_NAME} 个字。",
+                        "글꼴 이름은 {MAX_FONT_NAME}자를 넘을 수 없습니다.",
+                        "Font name can't be longer than {MAX_FONT_NAME} characters."
+                    ),
                 ));
             }
             let json = serde_json::to_string(&a).expect("外观设置只含字符串与枚举，序列化不会失败");
             db(state)?
                 .meta_set(APPEARANCE_KEY, &json)
                 .map_err(unavailable)?;
+            if let Some(lang) = a.language {
+                rummage_proto::i18n::set_lang(lang);
+            }
             Ok(Reply::Done)
         }
         Request::GetNotices => {
@@ -105,6 +115,7 @@ mod tests {
                 ui_font_name: "  霞鹜文楷 ".into(),
                 mono_font: FontMode::System,
                 mono_font_name: String::new(),
+                language: None,
             },
         };
         assert_eq!(respond(&state, body), Ok(Reply::Done));

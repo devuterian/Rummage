@@ -3,9 +3,13 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App'
 import { installBackButton } from './lib/back'
+import { loadCachedAppearance } from './lib/fonts'
+import { detectLang, setLang } from './lib/i18n'
 import { installBrowserBehaviorGuards, installCloseWatch, isAndroid, isTauri, TITLEBAR_HEIGHT } from './lib/platform'
 import { installSafeArea } from './lib/safeArea'
 import { installTauriLog } from './lib/tauriLog'
+
+setLang(loadCachedAppearance().language ?? detectLang())
 
 if (isTauri) {
   installTauriLog()

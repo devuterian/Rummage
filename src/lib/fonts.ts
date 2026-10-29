@@ -1,4 +1,5 @@
 import type { Appearance, FontMode } from '../types'
+import { getLang, isLang } from './i18n'
 import { readLocal, writeLocal } from './storage'
 
 export type FontSlot = 'ui' | 'mono'
@@ -30,17 +31,28 @@ function quoteFontFamily(name: string) {
   return `"${name.replace(/["\\]/g, '\\$&')}"`
 }
 
+/** 韩文用的内置字体：界面字体在中文以外的语言中排在最前，等宽字体缺韩文字形时也回退到它 */
+const KOREAN_FAMILY = 'Pretendard Variable'
+const loadKorean = () => import('../../fonts/pretendard.css')
+
 /** 内置字体用内置族名，自定义字体用用户填写的名称，未填写或选择系统字体时只用系统字体回退列表 */
 export function buildFontStack(slot: FontSlot, mode: FontMode, name = '') {
   const cfg = FONT_SLOTS[slot]
-  const family = mode === 'builtin' ? cfg.family : mode === 'custom' ? name.trim() : ''
+  if (mode === 'builtin') {
+    const families = slot === 'ui' && getLang() !== 'zh' ? [KOREAN_FAMILY, cfg.family] : [cfg.family, KOREAN_FAMILY]
+    return `${families.map(quoteFontFamily).join(', ')}, ${cfg.fallback}`
+  }
+  const family = mode === 'custom' ? name.trim() : ''
   return family ? `${quoteFontFamily(family)}, ${cfg.fallback}` : cfg.fallback
 }
 
 /** 只有内置字体才加载字体文件；本地样式表加载后无法移除，但切到其他字体后 CSS 变量已不再引用内置字体 */
 function applyFont(slot: FontSlot, mode: FontMode, name = '') {
   const cfg = FONT_SLOTS[slot]
-  if (mode === 'builtin') cfg.loadLocal().catch((err) => console.error('本地字体加载失败：', err))
+  if (mode === 'builtin') {
+    cfg.loadLocal().catch((err) => console.error('本地字体加载失败：', err))
+    loadKorean().catch((err) => console.error('本地字体加载失败：', err))
+  }
   document.documentElement.style.setProperty(cfg.cssVar, buildFontStack(slot, mode, name))
 }
 
@@ -62,7 +74,13 @@ export function loadCachedAppearance(): Appearance {
     const v = JSON.parse(raw)
     const mode = (m: unknown) => (FONT_MODES.includes(m as FontMode) ? (m as FontMode) : 'builtin')
     const name = (n: unknown) => (typeof n === 'string' ? n : '')
-    return { uiFont: mode(v?.uiFont), uiFontName: name(v?.uiFontName), monoFont: mode(v?.monoFont), monoFontName: name(v?.monoFontName) }
+    return {
+      uiFont: mode(v?.uiFont),
+      uiFontName: name(v?.uiFontName),
+      monoFont: mode(v?.monoFont),
+      monoFontName: name(v?.monoFontName),
+      ...(isLang(v?.language) ? { language: v.language } : {}),
+    }
   } catch {
     return DEFAULT_APPEARANCE
   }

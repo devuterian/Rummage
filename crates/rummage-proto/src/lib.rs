@@ -4,6 +4,7 @@
 //! 握手成功后客户端发 `ClientMsg::Request`，核心以同一 `id` 回 `CoreMsg::Response`，并随时推送 `CoreMsg::Event`。
 //! 两端由同一版本的本 crate 编译，协议版本不一致时在握手阶段以 `protocol_mismatch` 拒绝。
 pub mod config;
+pub mod i18n;
 pub mod params;
 pub mod settings;
 pub mod setup;
@@ -14,6 +15,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 pub use params::{Group, ParamDef, ParamKind, ParamValue};
+pub use i18n::Lang;
 pub use settings::{Appearance, FontMode, Notice};
 pub use setup::{AUTO_DEVICE, CPU_DEVICE};
 pub use setup::{
