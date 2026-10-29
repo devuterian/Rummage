@@ -44,7 +44,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRDMkM3N0VFRTNCMTY5QzgKUldUSWFiSGo3bmNzVEU2NTlBdHpWZGQ5SmZlVU1JTXlGUWRTTTVEeW9pOENyQnVJdjNubFpTVXUK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVGMUYzMjFGQzBFQTQ1MTcKUldRWFJlckFIeklmWDRsZWEvYnhmVTlDME1qMlJ5MW1ITld6NzdWWDhuN3hoTC9EU3BrVFEzeXQK",
       "endpoints": ["https://github.com/devuterian/Rummage/releases/latest/download/latest.json"],
       "requireSignedVersion": true,
       "windows": {
@@ -65,7 +65,7 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["SimpChinese"],
+        "languages": ["Korean", "SimpChinese", "English"],
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico",
         "template": "windows/installer.nsi"

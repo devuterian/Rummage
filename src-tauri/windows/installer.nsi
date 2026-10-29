@@ -83,7 +83,7 @@ Var AddToPath
 Var AddToPathCheckbox
 
 ; Rummage：所选目录下已有不属于本应用的 data 文件夹时的提示，安装目录页和静默、被动安装共用
-!define FOREIGNDATAMSG "所选文件夹中已有一个不属于 ${PRODUCTNAME} 的 data 文件夹，请改选其他文件夹。"
+!define FOREIGNDATAMSG "$(RummageForeignData)"
 
 ; Rummage：结束本安装目录中的后台服务（含推理子进程），不询问；界面仍由 CheckIfAppIsRunning 询问后结束
 !macro KillCoreProcesses
@@ -93,7 +93,7 @@ Var AddToPathCheckbox
     Pop $0
   ${EndIf}
   !insertmacro RestartManager_ShutdownFile "$INSTDIR\rummage-core.exe" $0
-  ${IfThen} $0 <> 0 ${|} DetailPrint "无法结束 Rummage 后台服务（错误码 $0）。" ${|}
+  ${IfThen} $0 <> 0 ${|} DetailPrint "$(RummageKillFailed)" ${|}
 !macroend
 
 Name "${PRODUCTNAME}"
@@ -429,7 +429,7 @@ Function InstallDirPageShow
   ; 说明文字（1006）的区域原本一直延伸到分组框，收短到复选框上方，避免重叠时互相覆盖
   GetDlgItem $0 $1 1006
   System::Call "user32::SetWindowPos(p r0, p 0, i 0, i 0, i r6, i r5, i 0x16)"
-  System::Call 'user32::CreateWindowEx(i ${__NSD_CheckBox_EXSTYLE}, w "${__NSD_CheckBox_CLASS}", w "添加到 PATH（可在命令行中直接运行 rummage-core）", i ${__NSD_CheckBox_STYLE}, i 0, i r5, i r6, i r7, p r1, i0, i0, i0) i .s'
+  System::Call 'user32::CreateWindowEx(i ${__NSD_CheckBox_EXSTYLE}, w "${__NSD_CheckBox_CLASS}", w "$(RummageAddToPath)", i ${__NSD_CheckBox_STYLE}, i 0, i r5, i r6, i r7, p r1, i0, i0, i0) i .s'
   Pop $AddToPathCheckbox
   SendMessage $HWNDPARENT ${WM_GETFONT} 0 0 $0
   SendMessage $AddToPathCheckbox ${WM_SETFONT} $0 1
@@ -481,11 +481,11 @@ Function ${un}UpdateUserPath
     ; 没有 Path 时新建，类型与系统默认一致
     StrCpy $R0 2
   ${ElseIf} $R2 <> 0
-    DetailPrint "无法读取 PATH（错误码 $R2），未修改。"
+    DetailPrint "$(RummagePathReadFailed)"
     Return
   ${ElseIf} $R0 <> 1
   ${AndIf} $R0 <> 2
-    DetailPrint "PATH 不是字符串类型，未修改。"
+    DetailPrint "$(RummagePathNotString)"
     Return
   ${Else}
     StrLen $R4 $INSTDIR
@@ -493,7 +493,7 @@ Function ${un}UpdateUserPath
     IntOp $R5 $R5 + $R4
     IntOp $R5 $R5 + 2
     ${If} $R5 > ${NSIS_MAX_STRLEN}
-      DetailPrint "PATH 过长，未修改。"
+      DetailPrint "$(RummagePathTooLong)"
       Return
     ${EndIf}
     ReadRegStr $R3 HKCU "Environment" "Path"
@@ -620,7 +620,7 @@ Function un.ConfirmShow ; Add add a `Delete app data` check box
   IntOp $5 $5 / 96
   IntOp $6 $6 / 96
   IntOp $7 $7 / 96
-  System::Call 'user32::CreateWindowEx(i r3, w "${__NSD_CheckBox_CLASS}", w "删除应用数据（不会删除被索引的文件）", i ${__NSD_CheckBox_STYLE}, i r4, i r5, i r6, i r7, p r1, i0, i0, i0) i .s'
+  System::Call 'user32::CreateWindowEx(i r3, w "${__NSD_CheckBox_CLASS}", w "$(RummageDeleteAppData)", i ${__NSD_CheckBox_STYLE}, i r4, i r5, i r6, i r7, p r1, i0, i0, i0) i .s'
   Pop $DeleteAppDataCheckbox
   SendMessage $HWNDPARENT ${WM_GETFONT} 0 0 $1
   SendMessage $DeleteAppDataCheckbox ${WM_SETFONT} $1 1
@@ -643,6 +643,32 @@ FunctionEnd
 {{#each language_files}}
   !include "{{this}}"
 {{/each}}
+
+; Rummage：本模板中自己的文字（韩语、中文、英语），语言与 tauri.conf.json 的 nsis.languages 一致
+LangString RummageForeignData ${LANG_KOREAN} "선택한 폴더에 ${PRODUCTNAME}의 것이 아닌 data 폴더가 이미 있습니다. 다른 폴더를 선택하십시오."
+LangString RummageForeignData ${LANG_SIMPCHINESE} "所选文件夹中已有一个不属于 ${PRODUCTNAME} 的 data 文件夹，请改选其他文件夹。"
+LangString RummageForeignData ${LANG_ENGLISH} "The selected folder already has a data folder that doesn't belong to ${PRODUCTNAME}. Choose another folder."
+LangString RummageKillFailed ${LANG_KOREAN} "Rummage 백그라운드 서비스를 종료하지 못했습니다(오류 코드 $0)."
+LangString RummageKillFailed ${LANG_SIMPCHINESE} "无法结束 Rummage 后台服务（错误码 $0）。"
+LangString RummageKillFailed ${LANG_ENGLISH} "Couldn't stop the Rummage background service (error code $0)."
+LangString RummageAddToPath ${LANG_KOREAN} "PATH에 추가(명령줄에서 rummage-core를 바로 실행)"
+LangString RummageAddToPath ${LANG_SIMPCHINESE} "添加到 PATH（可在命令行中直接运行 rummage-core）"
+LangString RummageAddToPath ${LANG_ENGLISH} "Add to PATH (run rummage-core directly from the command line)"
+LangString RummagePathReadFailed ${LANG_KOREAN} "PATH를 읽지 못해(오류 코드 $R2) 바꾸지 않았습니다."
+LangString RummagePathReadFailed ${LANG_SIMPCHINESE} "无法读取 PATH（错误码 $R2），未修改。"
+LangString RummagePathReadFailed ${LANG_ENGLISH} "Couldn't read PATH (error code $R2), so it was left unchanged."
+LangString RummagePathNotString ${LANG_KOREAN} "PATH가 문자열 형식이 아니라 바꾸지 않았습니다."
+LangString RummagePathNotString ${LANG_SIMPCHINESE} "PATH 不是字符串类型，未修改。"
+LangString RummagePathNotString ${LANG_ENGLISH} "PATH isn't a string value, so it was left unchanged."
+LangString RummagePathTooLong ${LANG_KOREAN} "PATH가 너무 길어 바꾸지 않았습니다."
+LangString RummagePathTooLong ${LANG_SIMPCHINESE} "PATH 过长，未修改。"
+LangString RummagePathTooLong ${LANG_ENGLISH} "PATH is too long, so it was left unchanged."
+LangString RummageDeleteAppData ${LANG_KOREAN} "앱 데이터 삭제(색인한 파일은 삭제하지 않음)"
+LangString RummageDeleteAppData ${LANG_SIMPCHINESE} "删除应用数据（不会删除被索引的文件）"
+LangString RummageDeleteAppData ${LANG_ENGLISH} "Delete app data (indexed files are not deleted)"
+LangString RummageNoAppData ${LANG_KOREAN} "데이터 폴더 $3에 이 앱의 데이터(index.db와 webview 폴더)가 없어 삭제하지 않았습니다."
+LangString RummageNoAppData ${LANG_SIMPCHINESE} "数据目录 $3 中没有本应用的数据（index.db 和 webview 文件夹），未删除。"
+LangString RummageNoAppData ${LANG_ENGLISH} "The data folder $3 has no data from this app (index.db and the webview folder), so nothing was deleted."
 
 Function .onInit
   ${GetOptions} $CMDLINE "/P" $PassiveMode
@@ -1256,7 +1282,7 @@ Section Uninstall
           !insertmacro RmDirSafe "$3\webview"
           RMDir "$3"
         ${Else}
-          DetailPrint "数据目录 $3 中没有本应用的数据（index.db 和 webview 文件夹），未删除。"
+          DetailPrint "$(RummageNoAppData)"
         ${EndIf}
       ${EndIf}
       Delete "$INSTDIR\data-dir"
